@@ -107,7 +107,7 @@ export default function App() {
         <div className="flex items-center gap-4 cursor-pointer" onClick={() => setView('home')}>
           {/* Logo Actualizado */}
           <img 
-            src="Logo-cpg grande.png" 
+            src="/logo-cpg-grande.png" 
             alt="Logo CPG" 
             className="w-12 h-12 object-contain filter drop-shadow-lg"
             onError={(e) => {e.target.style.display='none';}} // Ocultar si no carga
@@ -537,7 +537,7 @@ function CertificateView({ video, userProfile, onBack }) {
                {/* Logo Actualizado en Certificado */}
                <div className="absolute top-10 left-14 opacity-100">
                  <img 
-                   src="Logo-cpg grande.png" 
+                   src="/logo-cpg-grande.png" 
                    alt="Logo CPG" 
                    className="w-32 h-32 object-contain"
                  />
