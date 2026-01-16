@@ -60,6 +60,7 @@ export default function App() {
   const [videos, setVideos] = useState([]);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [manualCertificate, setManualCertificate] = useState(null);
   
   // Estado de Usuario (para certificados)
   const [userProfile, setUserProfile] = useState({ name: '', collegiateNumber: '' });
@@ -95,6 +96,16 @@ export default function App() {
   const handleLogout = () => {
     setIsAdmin(false);
     setView('home');
+  };
+
+  const handleManualCertificate = (video, profile) => {
+    setManualCertificate({ video, profile });
+    setView('certificate');
+  };
+
+  const handleCloseManualCertificate = () => {
+    setManualCertificate(null);
+    setView('admin');
   };
 
   const categories = [...new Set(videos.map(v => v.category))];
@@ -179,7 +190,18 @@ export default function App() {
           <AdminDashboard 
             videos={videos} 
             setVideos={setVideos} 
+            onGenerateCertificate={handleManualCertificate}
           />
+        )}
+
+        {view === 'certificate' && manualCertificate && (
+          <div className="min-h-screen bg-[#141414] pt-20 px-4 md:px-16 pb-12">
+            <CertificateView 
+              video={manualCertificate.video} 
+              userProfile={manualCertificate.profile} 
+              onBack={handleCloseManualCertificate} 
+            />
+          </div>
         )}
       </div>
 
@@ -508,6 +530,14 @@ function QuizModal({ video, onCancel, onPass, userProfile, setUserProfile }) {
 
 function CertificateView({ video, userProfile, onBack }) {
   const certRef = useRef();
+  const currentDate = new Date();
+  const formatDateYYYYMMDD = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
+  };
+  const certificateCode = `C${formatDateYYYYMMDD(currentDate)}`;
 
   const handlePrint = () => {
     window.print();
@@ -547,9 +577,12 @@ function CertificateView({ video, userProfile, onBack }) {
                  <div className="h-1 w-64 bg-[#d4af37] mb-1"></div>
                  <div className="h-0.5 w-48 bg-[#003366]"></div>
                </div>
-               <div className="absolute top-12 right-14 opacity-80">
-                 {/* Sello Decorativo */}
-                 <Award size={90} className="text-[#d4af37]" />
+               <div className="absolute top-12 right-14 opacity-100">
+                 <img 
+                   src="/logo-caeduc.png" 
+                   alt="Logo CAEDUC" 
+                   className="w-40 h-20 object-contain"
+                 />
                </div>
             </div>
 
@@ -575,22 +608,12 @@ function CertificateView({ video, userProfile, onBack }) {
             </div>
 
             {/* Firmas */}
-            <div className="w-full flex justify-around items-end mt-12 mb-8">
+            <div className="w-full flex justify-center items-end mt-12 mb-8">
               <div className="flex flex-col items-center gap-2">
-                <div className="w-64 border-b border-black mb-2 relative">
-                   {/* Firma simulada */}
-                   <span className="absolute -top-8 left-10 font-script text-2xl text-blue-900 transform -rotate-6 opacity-70" style={{fontFamily: 'cursive'}}>Junta Directiva</span>
-                </div>
-                <span className="font-bold text-sm uppercase">Junta Directiva</span>
-                <span className="text-xs text-gray-500">Colegio de Psicólogos de Guatemala</span>
-              </div>
-              
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-64 border-b border-black mb-2 relative">
-                  <span className="absolute -top-10 left-12 font-script text-2xl text-blue-900 transform -rotate-3 opacity-70" style={{fontFamily: 'cursive'}}>Comité Académico</span>
-                </div>
-                <span className="font-bold text-sm uppercase">Comisión de Créditos Académicos</span>
-                <span className="text-xs text-gray-500">Evaluación Aprobada: {new Date().toLocaleDateString()}</span>
+                <div className="w-72 border-b border-black mb-2"></div>
+                <span className="text-lg font-bold tracking-widest">{certificateCode}</span>
+                <span className="text-xs text-gray-600">Comisión de Acreditación y Educación Continua</span>
+                <span className="text-xs text-gray-500">Evaluación Aprobada: {currentDate.toLocaleDateString()}</span>
               </div>
             </div>
 
@@ -674,8 +697,10 @@ function LoginView({ onLogin, onBack }) {
   );
 }
 
-function AdminDashboard({ videos, setVideos }) {
+function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
   const [editingVideo, setEditingVideo] = useState(null); // null = list mode, {} = create mode
+  const [manualCertVideo, setManualCertVideo] = useState(null);
+  const [manualProfile, setManualProfile] = useState({ name: '', collegiateNumber: '' });
   
   // State for form
   const [formData, setFormData] = useState({
@@ -720,6 +745,20 @@ function AdminDashboard({ videos, setVideos }) {
     if (confirm("¿Estás seguro de eliminar este video?")) {
       setVideos(videos.filter(v => v.id !== id));
     }
+  };
+
+  const handleManualCertOpen = (video) => {
+    setManualCertVideo(video);
+    setManualProfile({ name: '', collegiateNumber: '' });
+  };
+
+  const handleManualCertGenerate = () => {
+    if (!manualProfile.name || !manualProfile.collegiateNumber) {
+      alert("Por favor ingrese el nombre del profesional y el número de colegiado.");
+      return;
+    }
+    onGenerateCertificate(manualCertVideo, manualProfile);
+    setManualCertVideo(null);
   };
 
   // Sub-component for Question Form inside Admin
@@ -866,11 +905,62 @@ function AdminDashboard({ videos, setVideos }) {
             </div>
             <div className="p-4 border-t border-gray-800 flex gap-2">
               <button onClick={() => handleEdit(video)} className="flex-1 bg-blue-900/40 hover:bg-blue-900/60 text-blue-200 py-2 rounded text-sm transition">Editar</button>
+              {video.quizEnabled && (
+                <button 
+                  onClick={() => handleManualCertOpen(video)} 
+                  className="flex-1 bg-yellow-700/40 hover:bg-yellow-700/60 text-yellow-200 py-2 rounded text-sm transition"
+                >
+                  Generar Certificado
+                </button>
+              )}
               <button onClick={() => handleDelete(video.id)} className="px-3 bg-red-900/40 hover:bg-red-900/60 text-red-300 rounded transition"><Trash2 size={16} /></button>
             </div>
           </div>
         ))}
       </div>
+
+      {manualCertVideo && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 w-full max-w-lg">
+            <h2 className="text-xl font-bold mb-4">Generar Certificado Manual</h2>
+            <p className="text-sm text-gray-400 mb-4">Curso: {manualCertVideo.title}</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Nombre del profesional</label>
+                <input 
+                  type="text" 
+                  value={manualProfile.name}
+                  onChange={(e) => setManualProfile({ ...manualProfile, name: e.target.value })}
+                  className="w-full bg-black border border-gray-700 rounded p-3 text-white focus:border-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Número de colegiado</label>
+                <input 
+                  type="text" 
+                  value={manualProfile.collegiateNumber}
+                  onChange={(e) => setManualProfile({ ...manualProfile, collegiateNumber: e.target.value })}
+                  className="w-full bg-black border border-gray-700 rounded p-3 text-white focus:border-blue-500 outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button 
+                onClick={() => setManualCertVideo(null)} 
+                className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleManualCertGenerate} 
+                className="px-4 py-2 bg-yellow-600 rounded hover:bg-yellow-700 font-bold"
+              >
+                Generar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
