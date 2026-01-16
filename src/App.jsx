@@ -214,7 +214,7 @@ export default function App() {
           <img 
             src="/logo-cpg-grande.png" 
             alt="Logo CPG" 
-            className="w-12 h-12 object-contain filter drop-shadow-lg"
+            className="w-14 h-14 object-contain filter drop-shadow-lg"
             onError={(e) => {e.target.style.display='none';}} // Ocultar si no carga
           />
           <div className="hidden md:block">
