@@ -565,11 +565,11 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Header / Logo */}
             <div className="w-full flex justify-center items-center mb-4">
                {/* Logo Actualizado en Certificado */}
-               <div className="absolute top-10 left-14 opacity-100">
+               <div className="absolute top-14 left-14 opacity-100">
                  <img 
                    src="/logo-cpg-grande.png" 
                    alt="Logo CPG" 
-                   className="w-32 h-32 object-contain"
+                   className="w-34 h-34 object-contain"
                  />
                </div>
                <div className="flex flex-col items-center">
@@ -577,7 +577,7 @@ function CertificateView({ video, userProfile, onBack }) {
                  <div className="h-1 w-64 bg-[#d4af37] mb-1"></div>
                  <div className="h-0.5 w-48 bg-[#003366]"></div>
                </div>
-               <div className="absolute top-20 right-14 opacity-100">
+               <div className="absolute top-24 right-14 opacity-100">
                  <img 
                    src="/logo-caeduc.png" 
                    alt="Logo CAEDUC" 
