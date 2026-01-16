@@ -577,7 +577,7 @@ function CertificateView({ video, userProfile, onBack }) {
                  <div className="h-1 w-64 bg-[#d4af37] mb-1"></div>
                  <div className="h-0.5 w-48 bg-[#003366]"></div>
                </div>
-               <div className="absolute top-16 right-14 opacity-100">
+               <div className="absolute top-20 right-14 opacity-100">
                  <img 
                    src="/logo-caeduc.png" 
                    alt="Logo CAEDUC" 
