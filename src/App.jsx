@@ -569,7 +569,7 @@ function CertificateView({ video, userProfile, onBack }) {
                  <img 
                    src="/logo-cpg-grande.png" 
                    alt="Logo CPG" 
-                   className="w-34 h-34 object-contain"
+                   className="w-32 h-32 object-contain"
                  />
                </div>
                <div className="flex flex-col items-center">
