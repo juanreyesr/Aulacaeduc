@@ -67,7 +67,7 @@ const encodeVideosPayload = (videos) => {
 const decodeVideosPayload = (payload) => {
   if (!payload) return null;
   try {
-    const json = decodeURIComponent(atob(payload.trim()));
+    const json = decodeURIComponent(atob(payload.trim().replaceAll(' ', '+')));
     const parsed = JSON.parse(json);
     return Array.isArray(parsed) ? parsed : null;
   } catch (error) {
@@ -148,6 +148,18 @@ export default function App() {
   // Cargar datos (simulación de persistencia)
   useEffect(() => {
     const savedVideos = localStorage.getItem('cpg_videos');
+    const params = new URLSearchParams(window.location.search);
+    const syncParam = params.get('sync');
+    const syncedVideos = decodeVideosPayload(syncParam);
+    if (syncedVideos) {
+      setVideos(syncedVideos);
+      localStorage.setItem('cpg_videos', JSON.stringify(syncedVideos));
+      params.delete('sync');
+      const cleanQuery = params.toString();
+      const newUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, '', newUrl);
+      return;
+    }
     if (savedVideos) {
       setVideos(JSON.parse(savedVideos));
     } else {
@@ -1110,7 +1122,7 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
         <h2 className="text-xl font-bold mb-2">Sincronizar contenido con móvil</h2>
         <p className="text-sm text-gray-400 mb-4">
           Las listas de videos se guardan en cada dispositivo. Usa este código para copiar el contenido del
-          escritorio y pegarlo en tu móvil.
+          escritorio y pegarlo en tu móvil. También puedes añadir <span className="text-blue-300">?sync=CODIGO</span> en la URL del móvil para importar al abrir.
         </p>
         <div className="flex flex-col lg:flex-row gap-3">
           <button
@@ -1120,12 +1132,11 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
           >
             Generar y copiar código
           </button>
-          <input
-            type="text"
+          <textarea
             value={syncCode}
             onChange={(e) => setSyncCode(e.target.value)}
             placeholder="Pega aquí el código desde otro dispositivo"
-            className="flex-1 bg-gray-950 border border-gray-700 px-3 py-2 rounded text-sm text-white"
+            className="flex-1 bg-gray-950 border border-gray-700 px-3 py-2 rounded text-sm text-white min-h-[48px]"
           />
           <button
             type="button"
