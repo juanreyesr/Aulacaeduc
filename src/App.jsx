@@ -305,7 +305,7 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <footer className="py-10 px-8 bg-black/80 text-gray-500 text-sm border-t border-gray-800 mt-10">
+      <footer className="py-12 px-10 bg-black/80 text-gray-500 text-sm border-t border-gray-800 mt-10">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-center md:text-left">
             <img 
