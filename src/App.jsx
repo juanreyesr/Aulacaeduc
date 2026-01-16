@@ -55,11 +55,11 @@ const INITIAL_VIDEOS = [
   }
 ];
 
-const getYouTubeThumbnail = (youtubeId) => {
+const getYouTubeThumbnail = (youtubeId, quality = 'maxresdefault') => {
   if (!youtubeId) {
     return "https://via.placeholder.com/640x360";
   }
-  return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
+  return `https://img.youtube.com/vi/${youtubeId}/${quality}.jpg`;
 };
 
 const getVideoThumbnail = (video) => {
@@ -287,9 +287,17 @@ function HomeView({ videos, recentVideos, categories, upcomingVideos, onVideoSel
               className="w-full h-full object-cover opacity-60 scale-105"
               onError={(e) => {
                 if (!heroVideo) return;
-                if (e.currentTarget.dataset.fallbackApplied) return;
-                e.currentTarget.dataset.fallbackApplied = 'true';
-                e.currentTarget.src = getYouTubeThumbnail(heroVideo.youtubeId);
+                const target = e.currentTarget;
+                const stage = target.dataset.fallbackStage || 'maxresdefault';
+                if (stage === 'maxresdefault') {
+                  target.dataset.fallbackStage = 'hqdefault';
+                  target.src = getYouTubeThumbnail(heroVideo.youtubeId, 'hqdefault');
+                  return;
+                }
+                if (stage === 'hqdefault') {
+                  target.dataset.fallbackStage = 'placeholder';
+                  target.src = getYouTubeThumbnail('');
+                }
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/60 to-transparent" />
@@ -407,9 +415,17 @@ function VideoCard({ video, onClick, isSmall, isPublished }) {
         alt={video.title} 
         className="w-full h-full object-cover" 
         onError={(e) => {
-          if (e.currentTarget.dataset.fallbackApplied) return;
-          e.currentTarget.dataset.fallbackApplied = 'true';
-          e.currentTarget.src = getYouTubeThumbnail(video.youtubeId);
+          const target = e.currentTarget;
+          const stage = target.dataset.fallbackStage || 'maxresdefault';
+          if (stage === 'maxresdefault') {
+            target.dataset.fallbackStage = 'hqdefault';
+            target.src = getYouTubeThumbnail(video.youtubeId, 'hqdefault');
+            return;
+          }
+          if (stage === 'hqdefault') {
+            target.dataset.fallbackStage = 'placeholder';
+            target.src = getYouTubeThumbnail('');
+          }
         }}
       />
       <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-all" />
@@ -1029,9 +1045,17 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
                 className="w-full h-full object-cover" 
                 alt="" 
                 onError={(e) => {
-                  if (e.currentTarget.dataset.fallbackApplied) return;
-                  e.currentTarget.dataset.fallbackApplied = 'true';
-                  e.currentTarget.src = getYouTubeThumbnail(video.youtubeId);
+                  const target = e.currentTarget;
+                  const stage = target.dataset.fallbackStage || 'maxresdefault';
+                  if (stage === 'maxresdefault') {
+                    target.dataset.fallbackStage = 'hqdefault';
+                    target.src = getYouTubeThumbnail(video.youtubeId, 'hqdefault');
+                    return;
+                  }
+                  if (stage === 'hqdefault') {
+                    target.dataset.fallbackStage = 'placeholder';
+                    target.src = getYouTubeThumbnail('');
+                  }
                 }}
               />
               <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 text-xs rounded text-white">ID: {video.id}</div>
