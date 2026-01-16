@@ -55,6 +55,26 @@ const INITIAL_VIDEOS = [
   }
 ];
 
+const encodeVideosPayload = (videos) => {
+  try {
+    const json = JSON.stringify(videos);
+    return btoa(encodeURIComponent(json));
+  } catch (error) {
+    return '';
+  }
+};
+
+const decodeVideosPayload = (payload) => {
+  if (!payload) return null;
+  try {
+    const json = decodeURIComponent(atob(payload.trim()));
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+};
+
 const extractYouTubeId = (value) => {
   if (!value) return '';
   const trimmed = value.trim();
@@ -312,13 +332,13 @@ function HomeView({ videos, recentVideos, categories, upcomingVideos, onVideoSel
               onError={(e) => {
                 if (!heroVideo) return;
                 const target = e.currentTarget;
-                const stage = target.dataset.fallbackStage || 'maxresdefault';
-                if (stage === 'maxresdefault') {
-                  target.dataset.fallbackStage = 'hqdefault';
-                  target.src = getYouTubeThumbnail(heroVideo.youtubeId, 'hqdefault');
+                const stage = target.dataset.fallbackStage || 'hqdefault';
+                if (stage === 'hqdefault') {
+                  target.dataset.fallbackStage = 'mqdefault';
+                  target.src = getYouTubeThumbnail(heroVideo.youtubeId, 'mqdefault');
                   return;
                 }
-                if (stage === 'hqdefault') {
+                if (stage === 'mqdefault') {
                   target.dataset.fallbackStage = 'placeholder';
                   target.src = getYouTubeThumbnail('');
                 }
@@ -856,6 +876,7 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
   const [editingVideo, setEditingVideo] = useState(null); // null = list mode, {} = create mode
   const [manualCertVideo, setManualCertVideo] = useState(null);
   const [manualProfile, setManualProfile] = useState({ name: '', collegiateNumber: '' });
+  const [syncCode, setSyncCode] = useState('');
   
   // State for form
   const [formData, setFormData] = useState({
@@ -919,6 +940,31 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
     }
     onGenerateCertificate(manualCertVideo, manualProfile);
     setManualCertVideo(null);
+  };
+
+  const handleCopySyncCode = async () => {
+    const payload = encodeVideosPayload(videos);
+    if (!payload) {
+      alert("No se pudo generar el código de sincronización.");
+      return;
+    }
+    setSyncCode(payload);
+    try {
+      await navigator.clipboard.writeText(payload);
+      alert("Código de sincronización copiado.");
+    } catch (error) {
+      alert("Copia manualmente el código de sincronización mostrado.");
+    }
+  };
+
+  const handleImportSyncCode = () => {
+    const decoded = decodeVideosPayload(syncCode);
+    if (!decoded) {
+      alert("El código no es válido. Verifica y vuelve a intentarlo.");
+      return;
+    }
+    setVideos(decoded);
+    alert("Contenido sincronizado correctamente.");
   };
 
   // Sub-component for Question Form inside Admin
@@ -1058,6 +1104,37 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
         <button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold flex items-center gap-2">
           <Plus size={20} /> Nuevo Video
         </button>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-8">
+        <h2 className="text-xl font-bold mb-2">Sincronizar contenido con móvil</h2>
+        <p className="text-sm text-gray-400 mb-4">
+          Las listas de videos se guardan en cada dispositivo. Usa este código para copiar el contenido del
+          escritorio y pegarlo en tu móvil.
+        </p>
+        <div className="flex flex-col lg:flex-row gap-3">
+          <button
+            type="button"
+            onClick={handleCopySyncCode}
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-semibold"
+          >
+            Generar y copiar código
+          </button>
+          <input
+            type="text"
+            value={syncCode}
+            onChange={(e) => setSyncCode(e.target.value)}
+            placeholder="Pega aquí el código desde otro dispositivo"
+            className="flex-1 bg-gray-950 border border-gray-700 px-3 py-2 rounded text-sm text-white"
+          />
+          <button
+            type="button"
+            onClick={handleImportSyncCode}
+            className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-semibold"
+          >
+            Importar código
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
