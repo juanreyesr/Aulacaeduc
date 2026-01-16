@@ -273,6 +273,7 @@ export default function App() {
 function HomeView({ videos, recentVideos, categories, upcomingVideos, onVideoSelect }) {
   // Hero Video (most recent published)
   const heroVideo = recentVideos[0];
+  const [showHeroInfo, setShowHeroInfo] = useState(false);
 
   return (
     <div className="pb-10">
@@ -312,11 +313,30 @@ function HomeView({ videos, recentVideos, categories, upcomingVideos, onVideoSel
               >
                 <Play fill="black" size={24} /> Ver Ahora
               </button>
-              <button className="bg-gray-600/70 text-white px-8 py-3 rounded hover:bg-gray-600/90 font-bold flex items-center gap-2 backdrop-blur-sm transition">
+              <button 
+                onClick={() => setShowHeroInfo((prev) => !prev)}
+                className="bg-gray-600/70 text-white px-8 py-3 rounded hover:bg-gray-600/90 font-bold flex items-center gap-2 backdrop-blur-sm transition"
+              >
                 <Info size={24} /> Más Info
               </button>
             </div>
           </div>
+
+          {showHeroInfo && (
+            <div className="absolute top-24 right-6 md:right-12 max-w-sm bg-black/80 border border-gray-700 rounded-lg p-4 text-sm text-gray-200 shadow-xl">
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <h3 className="font-bold text-white text-base">{heroVideo.title}</h3>
+                <button 
+                  onClick={() => setShowHeroInfo(false)} 
+                  className="text-gray-400 hover:text-white"
+                  aria-label="Cerrar descripción"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="text-gray-300 leading-relaxed">{heroVideo.description}</p>
+            </div>
+          )}
         </div>
       )}
 
