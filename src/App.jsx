@@ -208,7 +208,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#141414] text-white font-sans selection:bg-blue-600 selection:text-white overflow-x-hidden">
       {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50 bg-gradient-to-b from-black/90 to-transparent px-4 py-4 flex justify-between items-center transition-all duration-300">
+      <nav className="fixed top-0 w-full z-50 bg-gradient-to-b from-black/90 to-transparent px-4 py-5 flex justify-between items-center transition-all duration-300">
         <div className="flex items-center gap-4 cursor-pointer" onClick={() => setView('home')}>
           {/* Logo Actualizado */}
           <img 
@@ -218,7 +218,7 @@ export default function App() {
             onError={(e) => {e.target.style.display='none';}} // Ocultar si no carga
           />
           <div className="hidden md:block">
-            <h1 className="text-lg font-bold leading-tight text-gray-100">Colegio de Psicólogos</h1>
+            <h1 className="text-lg font-bold leading-tight text-gray-100">Colegio de Psicólogos de Guatemala</h1>
             <p className="text-xs text-blue-400 tracking-widest uppercase">Aula Virtual</p>
           </div>
         </div>
@@ -308,6 +308,12 @@ export default function App() {
       <footer className="py-10 px-8 bg-black/80 text-gray-500 text-sm border-t border-gray-800 mt-10">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-center md:text-left">
+            <img 
+            src="/logo-cpg-grande.png" 
+            alt="Logo CPG" 
+            className="w-14 h-14 object-contain filter drop-shadow-lg"
+            onError={(e) => {e.target.style.display='none';}} // Ocultar si no carga
+          />
             <h3 className="text-white font-serif font-bold mb-2">Colegio de Psicólogos de Guatemala</h3>
             <p>Formación continua y excelencia profesional.</p>
           </div>
