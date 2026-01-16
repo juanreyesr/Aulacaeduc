@@ -16,7 +16,7 @@ const INITIAL_VIDEOS = [
     youtubeId: "hJKwF2rXGz4", // ID de ejemplo
     duration: "2",
     description: "Un recorrido fundamental por los principios de la práctica clínica moderna y el abordaje del paciente.",
-    thumbnail: "https://img.youtube.com/vi/hJKwF2rXGz4/maxresdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/hJKwF2rXGz4/hqdefault.jpg",
     scheduledAt: "",
     quizEnabled: true,
     questions: Array(10).fill(null).map((_, i) => ({
@@ -32,7 +32,7 @@ const INITIAL_VIDEOS = [
     youtubeId: "PrJj3sP7b-M", 
     duration: "1.5",
     description: "Análisis del código deontológico y dilemas éticos frecuentes en la consulta.",
-    thumbnail: "https://img.youtube.com/vi/PrJj3sP7b-M/maxresdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/PrJj3sP7b-M/hqdefault.jpg",
     scheduledAt: "",
     quizEnabled: false,
     questions: []
@@ -44,7 +44,7 @@ const INITIAL_VIDEOS = [
     youtubeId: "MMP3e9yZqIw",
     duration: "3",
     description: "Exploración de las bases neurológicas que sustentan los procesos de aprendizaje y memoria.",
-    thumbnail: "https://img.youtube.com/vi/MMP3e9yZqIw/maxresdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/MMP3e9yZqIw/hqdefault.jpg",
     scheduledAt: "",
     quizEnabled: true,
     questions: Array(10).fill(null).map((_, i) => ({
@@ -55,11 +55,35 @@ const INITIAL_VIDEOS = [
   }
 ];
 
-const getYouTubeThumbnail = (youtubeId, quality = 'maxresdefault') => {
-  if (!youtubeId) {
+const extractYouTubeId = (value) => {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (!trimmed.includes('http')) {
+    return trimmed;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    if (url.hostname.includes('youtu.be')) {
+      return url.pathname.replace('/', '');
+    }
+    if (url.searchParams.has('v')) {
+      return url.searchParams.get('v') || '';
+    }
+    const pathMatch = url.pathname.match(/\/embed\/([^/?]+)/);
+    return pathMatch ? pathMatch[1] : '';
+  } catch (error) {
+    return '';
+  }
+};
+
+const getYouTubeThumbnail = (youtubeId, quality = 'hqdefault') => {
+  const safeId = extractYouTubeId(youtubeId);
+  if (!safeId) {
     return "https://via.placeholder.com/640x360";
   }
-  return `https://img.youtube.com/vi/${youtubeId}/${quality}.jpg`;
+  return `https://i.ytimg.com/vi/${safeId}/${quality}.jpg`;
 };
 
 const getVideoThumbnail = (video) => {
@@ -416,13 +440,13 @@ function VideoCard({ video, onClick, isSmall, isPublished }) {
         className="w-full h-full object-cover" 
         onError={(e) => {
           const target = e.currentTarget;
-          const stage = target.dataset.fallbackStage || 'maxresdefault';
-          if (stage === 'maxresdefault') {
-            target.dataset.fallbackStage = 'hqdefault';
-            target.src = getYouTubeThumbnail(video.youtubeId, 'hqdefault');
+          const stage = target.dataset.fallbackStage || 'hqdefault';
+          if (stage === 'hqdefault') {
+            target.dataset.fallbackStage = 'mqdefault';
+            target.src = getYouTubeThumbnail(video.youtubeId, 'mqdefault');
             return;
           }
-          if (stage === 'hqdefault') {
+          if (stage === 'mqdefault') {
             target.dataset.fallbackStage = 'placeholder';
             target.src = getYouTubeThumbnail('');
           }
@@ -477,10 +501,10 @@ function PlayerView({ video, onBack, userProfile, setUserProfile }) {
               <iframe 
                 width="100%" 
                 height="100%" 
-                src={`https://www.youtube.com/embed/${video.youtubeId}`} 
+                src={`https://www.youtube-nocookie.com/embed/${extractYouTubeId(video.youtubeId)}?playsinline=1&rel=0`} 
                 title={video.title} 
                 frameBorder="0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
                 allowFullScreen
               ></iframe>
             </div>
@@ -1046,13 +1070,13 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
                 alt="" 
                 onError={(e) => {
                   const target = e.currentTarget;
-                  const stage = target.dataset.fallbackStage || 'maxresdefault';
-                  if (stage === 'maxresdefault') {
-                    target.dataset.fallbackStage = 'hqdefault';
-                    target.src = getYouTubeThumbnail(video.youtubeId, 'hqdefault');
+                  const stage = target.dataset.fallbackStage || 'hqdefault';
+                  if (stage === 'hqdefault') {
+                    target.dataset.fallbackStage = 'mqdefault';
+                    target.src = getYouTubeThumbnail(video.youtubeId, 'mqdefault');
                     return;
                   }
-                  if (stage === 'hqdefault') {
+                  if (stage === 'mqdefault') {
                     target.dataset.fallbackStage = 'placeholder';
                     target.src = getYouTubeThumbnail('');
                   }
