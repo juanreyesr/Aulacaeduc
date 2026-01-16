@@ -17,6 +17,7 @@ const INITIAL_VIDEOS = [
     duration: "2",
     description: "Un recorrido fundamental por los principios de la práctica clínica moderna y el abordaje del paciente.",
     thumbnail: "https://img.youtube.com/vi/hJKwF2rXGz4/maxresdefault.jpg",
+    scheduledAt: "",
     quizEnabled: true,
     questions: Array(10).fill(null).map((_, i) => ({
       question: `¿Pregunta de prueba ${i + 1} sobre Psicología Clínica?`,
@@ -32,6 +33,7 @@ const INITIAL_VIDEOS = [
     duration: "1.5",
     description: "Análisis del código deontológico y dilemas éticos frecuentes en la consulta.",
     thumbnail: "https://img.youtube.com/vi/PrJj3sP7b-M/maxresdefault.jpg",
+    scheduledAt: "",
     quizEnabled: false,
     questions: []
   },
@@ -43,6 +45,7 @@ const INITIAL_VIDEOS = [
     duration: "3",
     description: "Exploración de las bases neurológicas que sustentan los procesos de aprendizaje y memoria.",
     thumbnail: "https://img.youtube.com/vi/MMP3e9yZqIw/maxresdefault.jpg",
+    scheduledAt: "",
     quizEnabled: true,
     questions: Array(10).fill(null).map((_, i) => ({
       question: `¿Pregunta conceptual ${i + 1}?`,
@@ -51,6 +54,39 @@ const INITIAL_VIDEOS = [
     }))
   }
 ];
+
+const getYouTubeThumbnail = (youtubeId) => {
+  if (!youtubeId) {
+    return "https://via.placeholder.com/640x360";
+  }
+  return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
+};
+
+const getVideoThumbnail = (video) => {
+  const custom = video?.thumbnail?.trim();
+  return custom || getYouTubeThumbnail(video?.youtubeId);
+};
+
+const getScheduledDate = (scheduledAt) => {
+  if (!scheduledAt) return null;
+  return new Date(`${scheduledAt}T00:00:00`);
+};
+
+const isVideoPublished = (video) => {
+  const scheduledDate = getScheduledDate(video?.scheduledAt);
+  if (!scheduledDate) return true;
+  return scheduledDate <= new Date();
+};
+
+const formatScheduleDate = (scheduledAt) => {
+  const date = getScheduledDate(scheduledAt);
+  if (!date) return '';
+  return date.toLocaleDateString('es-GT', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
 
 // --- COMPONENTES PRINCIPALES ---
 
@@ -109,7 +145,9 @@ export default function App() {
   };
 
   const categories = [...new Set(videos.map(v => v.category))];
-  const recentVideos = [...videos].reverse().slice(0, 5);
+  const publishedVideos = videos.filter(isVideoPublished);
+  const upcomingVideos = videos.filter(v => !isVideoPublished(v));
+  const recentVideos = [...publishedVideos].reverse().slice(0, 5);
 
   return (
     <div className="min-h-screen bg-[#141414] text-white font-sans selection:bg-blue-600 selection:text-white overflow-x-hidden">
@@ -169,7 +207,12 @@ export default function App() {
             videos={videos} 
             recentVideos={recentVideos} 
             categories={categories} 
-            onVideoSelect={(v) => { setSelectedVideo(v); setView('player'); }} 
+            upcomingVideos={upcomingVideos}
+            onVideoSelect={(v) => {
+              if (!isVideoPublished(v)) return;
+              setSelectedVideo(v);
+              setView('player');
+            }} 
           />
         )}
         
@@ -227,8 +270,8 @@ export default function App() {
 
 // --- VISTAS ESPECÍFICAS ---
 
-function HomeView({ videos, recentVideos, categories, onVideoSelect }) {
-  // Hero Video (Random or most recent)
+function HomeView({ videos, recentVideos, categories, upcomingVideos, onVideoSelect }) {
+  // Hero Video (most recent published)
   const heroVideo = recentVideos[0];
 
   return (
@@ -238,9 +281,15 @@ function HomeView({ videos, recentVideos, categories, onVideoSelect }) {
         <div className="relative h-[70vh] w-full overflow-hidden">
           <div className="absolute inset-0">
             <img 
-              src={heroVideo.thumbnail} 
+              src={getVideoThumbnail(heroVideo)} 
               alt={heroVideo.title} 
               className="w-full h-full object-cover opacity-60 scale-105"
+              onError={(e) => {
+                if (!heroVideo) return;
+                if (e.currentTarget.dataset.fallbackApplied) return;
+                e.currentTarget.dataset.fallbackApplied = 'true';
+                e.currentTarget.src = getYouTubeThumbnail(heroVideo.youtubeId);
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/60 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-transparent" />
@@ -276,10 +325,31 @@ function HomeView({ videos, recentVideos, categories, onVideoSelect }) {
         <h2 className="text-xl md:text-2xl font-bold mb-4 text-white">Recién Añadidos</h2>
         <div className="flex gap-4 overflow-x-auto pb-8 pr-8 scrollbar-hide snap-x">
           {recentVideos.map(video => (
-            <VideoCard key={video.id} video={video} onClick={() => onVideoSelect(video)} />
+            <VideoCard 
+              key={video.id} 
+              video={video} 
+              onClick={() => onVideoSelect(video)} 
+              isPublished={isVideoPublished(video)}
+            />
           ))}
         </div>
       </div>
+
+      {upcomingVideos.length > 0 && (
+        <div className="pl-8 md:pl-16 mt-8">
+          <h2 className="text-xl md:text-2xl font-bold mb-4 text-white">Próximamente</h2>
+          <div className="flex gap-4 overflow-x-auto pb-8 pr-8 scrollbar-hide snap-x">
+            {upcomingVideos.map(video => (
+              <VideoCard 
+                key={video.id} 
+                video={video} 
+                onClick={() => onVideoSelect(video)} 
+                isPublished={isVideoPublished(video)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Categorías */}
       {categories.map(category => (
@@ -289,7 +359,13 @@ function HomeView({ videos, recentVideos, categories, onVideoSelect }) {
           </h2>
           <div className="flex gap-4 overflow-x-auto pb-4 pr-8 scrollbar-hide snap-x">
             {videos.filter(v => v.category === category).map(video => (
-              <VideoCard key={video.id} video={video} onClick={() => onVideoSelect(video)} isSmall />
+              <VideoCard 
+                key={video.id} 
+                video={video} 
+                onClick={() => onVideoSelect(video)} 
+                isSmall 
+                isPublished={isVideoPublished(video)}
+              />
             ))}
           </div>
         </div>
@@ -298,14 +374,33 @@ function HomeView({ videos, recentVideos, categories, onVideoSelect }) {
   );
 }
 
-function VideoCard({ video, onClick, isSmall }) {
+function VideoCard({ video, onClick, isSmall, isPublished }) {
+  const scheduledLabel = !isPublished ? formatScheduleDate(video.scheduledAt) : null;
+
   return (
     <div 
-      onClick={onClick}
-      className={`relative flex-shrink-0 bg-gray-900 rounded-md overflow-hidden cursor-pointer transition-all duration-300 transform hover:scale-110 hover:z-50 hover:shadow-2xl hover:shadow-blue-900/40 group ${isSmall ? 'w-64 h-36' : 'w-80 h-44'}`}
+      onClick={isPublished ? onClick : undefined}
+      className={`relative flex-shrink-0 bg-gray-900 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-110 hover:z-50 hover:shadow-2xl hover:shadow-blue-900/40 group ${isSmall ? 'w-64 h-36' : 'w-80 h-44'} ${isPublished ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
     >
-      <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
+      <img 
+        src={getVideoThumbnail(video)} 
+        alt={video.title} 
+        className="w-full h-full object-cover" 
+        onError={(e) => {
+          if (e.currentTarget.dataset.fallbackApplied) return;
+          e.currentTarget.dataset.fallbackApplied = 'true';
+          e.currentTarget.src = getYouTubeThumbnail(video.youtubeId);
+        }}
+      />
       <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-all" />
+      {!isPublished && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-center px-4">
+          <span className="text-yellow-400 font-bold text-sm uppercase tracking-widest">Próximamente</span>
+          {scheduledLabel && (
+            <span className="text-xs text-gray-200 mt-2">Disponible el {scheduledLabel}</span>
+          )}
+        </div>
+      )}
       <div className="absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t from-black via-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-all">
         <h3 className="font-bold text-sm text-white truncate">{video.title}</h3>
         <p className="text-xs text-gray-300 flex items-center gap-2 mt-1">
@@ -704,13 +799,17 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
   
   // State for form
   const [formData, setFormData] = useState({
-    title: '', category: '', youtubeId: '', duration: '', description: '', thumbnail: '', quizEnabled: false
+    title: '', category: '', youtubeId: '', duration: '', description: '', thumbnail: '', scheduledAt: '', quizEnabled: false
   });
   const [questions, setQuestions] = useState([]);
 
   const handleEdit = (video) => {
     setEditingVideo(video);
-    setFormData(video);
+    setFormData({
+      ...video,
+      scheduledAt: video.scheduledAt || '',
+      thumbnail: video.thumbnail || ''
+    });
     setQuestions(video.questions || []);
   };
 
@@ -718,7 +817,8 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
     const empty = {
       id: Date.now(),
       title: '', category: '', youtubeId: '', duration: '', description: '', 
-      thumbnail: 'https://via.placeholder.com/640x360', 
+      thumbnail: '',
+      scheduledAt: '',
       quizEnabled: false
     };
     setEditingVideo(empty);
@@ -834,12 +934,23 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
                 <input type="number" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} className="w-full bg-gray-900 border border-gray-700 p-2 rounded text-white" />
               </div>
               <div>
-                <label className="block text-sm text-gray-400">URL Imagen Portada</label>
+                <label className="block text-sm text-gray-400">URL Imagen Portada (opcional)</label>
                 <input type="text" value={formData.thumbnail} onChange={e => setFormData({...formData, thumbnail: e.target.value})} className="w-full bg-gray-900 border border-gray-700 p-2 rounded text-white" />
+                <p className="text-xs text-gray-500 mt-1">Si no se carga, se usará automáticamente la portada de YouTube.</p>
               </div>
               <div>
                 <label className="block text-sm text-gray-400">Descripción</label>
                 <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-gray-900 border border-gray-700 p-2 rounded text-white h-24" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Programar publicación</label>
+                <input 
+                  type="date" 
+                  value={formData.scheduledAt} 
+                  onChange={e => setFormData({...formData, scheduledAt: e.target.value})} 
+                  className="w-full bg-gray-900 border border-gray-700 p-2 rounded text-white" 
+                />
+                <p className="text-xs text-gray-500 mt-1">Deja vacío para publicar de inmediato.</p>
               </div>
             </div>
           </div>
@@ -893,7 +1004,16 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
         {videos.map(video => (
           <div key={video.id} className="bg-gray-900 rounded-lg overflow-hidden border border-gray-800 flex flex-col">
             <div className="h-40 relative">
-              <img src={video.thumbnail} className="w-full h-full object-cover" alt="" />
+              <img 
+                src={getVideoThumbnail(video)} 
+                className="w-full h-full object-cover" 
+                alt="" 
+                onError={(e) => {
+                  if (e.currentTarget.dataset.fallbackApplied) return;
+                  e.currentTarget.dataset.fallbackApplied = 'true';
+                  e.currentTarget.src = getYouTubeThumbnail(video.youtubeId);
+                }}
+              />
               <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 text-xs rounded text-white">ID: {video.id}</div>
             </div>
             <div className="p-4 flex-1">
@@ -901,6 +1021,11 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
               <p className="text-sm text-gray-400 mb-2">{video.category}</p>
               <div className="flex items-center gap-2 text-xs mb-4">
                 {video.quizEnabled ? <span className="text-green-400 border border-green-400/30 px-2 py-0.5 rounded">Evaluación Activa</span> : <span className="text-gray-500">Sin Evaluación</span>}
+                {!isVideoPublished(video) && (
+                  <span className="text-yellow-400 border border-yellow-400/30 px-2 py-0.5 rounded">
+                    Programado {formatScheduleDate(video.scheduledAt)}
+                  </span>
+                )}
               </div>
             </div>
             <div className="p-4 border-t border-gray-800 flex gap-2">
