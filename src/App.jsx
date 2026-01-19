@@ -6,7 +6,9 @@ import { supabase } from './supabaseClient';
 
 const ADMIN_CREDENTIALS = {
   email: "juanr502@yahoo.es",
-  password: "Juanjose5826"
+  password: "Juanjose5826",
+  email: "gestor.caeduc@colegiodepsicologos.org.gt",
+  password: "CAEDUC2025"
 };
 
 const INITIAL_VIDEOS = [
