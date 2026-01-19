@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Info, CheckCircle, XCircle, LogOut, Plus, Trash2, Award, ChevronLeft, Lock, Save, ExternalLink, Menu, X } from 'lucide-react';
+import { Play, CheckCircle, XCircle, LogOut, Plus, Trash2, Award, ChevronLeft, Lock, Save, ExternalLink, Menu, X, CalendarDays } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 // --- CONFIGURACIÓN Y DATOS INICIALES ---
@@ -123,25 +123,35 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [manualCertificate, setManualCertificate] = useState(null);
   const [authError, setAuthError] = useState('');
+  const [activities, setActivities] = useState([]);
   
   // Estado de Usuario (para certificados)
   const [userProfile, setUserProfile] = useState({ name: '', collegiateNumber: '' });
 
   // Cargar datos (simulación de persistencia)
   useEffect(() => {
-    const loadVideos = async () => {
+    const loadContent = async () => {
       const savedVideos = localStorage.getItem('cpg_videos');
+      const savedActivities = localStorage.getItem('cpg_activities');
       if (supabase) {
         try {
           const { data, error } = await supabase
             .from('cpg_content')
-            .select('videos')
+            .select('videos, activities')
             .eq('id', 1)
             .single();
-          if (!error && data?.videos?.length) {
-            setVideos(data.videos);
-            localStorage.setItem('cpg_videos', JSON.stringify(data.videos));
-            return;
+          if (!error) {
+            if (data?.videos?.length) {
+              setVideos(data.videos);
+              localStorage.setItem('cpg_videos', JSON.stringify(data.videos));
+            }
+            if (data?.activities?.length) {
+              setActivities(data.activities);
+              localStorage.setItem('cpg_activities', JSON.stringify(data.activities));
+            }
+            if (data?.videos?.length || data?.activities?.length) {
+              return;
+            }
           }
         } catch (error) {
           // fallback to local storage
@@ -153,26 +163,32 @@ export default function App() {
       } else {
         setVideos(INITIAL_VIDEOS);
       }
+      if (savedActivities) {
+        setActivities(JSON.parse(savedActivities));
+      }
     };
 
-    loadVideos();
+    loadContent();
   }, []);
 
   // Guardar datos cuando cambian
-  const persistVideos = async (nextVideos) => {
+  const persistContent = async ({ nextVideos = videos, nextActivities = activities }) => {
     setVideos(nextVideos);
-    if (nextVideos.length > 0) {
-      localStorage.setItem('cpg_videos', JSON.stringify(nextVideos));
-    }
+    setActivities(nextActivities);
+    localStorage.setItem('cpg_videos', JSON.stringify(nextVideos));
+    localStorage.setItem('cpg_activities', JSON.stringify(nextActivities));
     if (supabase) {
       const { error } = await supabase
         .from('cpg_content')
-        .upsert({ id: 1, videos: nextVideos }, { onConflict: 'id' });
+        .upsert({ id: 1, videos: nextVideos, activities: nextActivities }, { onConflict: 'id' });
       if (error) {
         throw new Error(error.message);
       }
     }
   };
+
+  const persistVideos = async (nextVideos) => persistContent({ nextVideos });
+  const persistActivities = async (nextActivities) => persistContent({ nextActivities });
 
   // --- NAVEGACIÓN Y VISTAS ---
 
@@ -277,6 +293,7 @@ export default function App() {
             recentVideos={recentVideos} 
             categories={categories} 
             upcomingVideos={upcomingVideos}
+            activities={activities}
             onVideoSelect={(v) => {
               if (!isVideoPublished(v)) return;
               setSelectedVideo(v);
@@ -301,7 +318,9 @@ export default function App() {
         {view === 'admin' && isAdmin && (
           <AdminDashboard 
             videos={videos} 
+            activities={activities}
             onVideosChange={persistVideos}
+            onActivitiesChange={persistActivities}
             onGenerateCertificate={handleManualCertificate}
           />
         )}
@@ -345,15 +364,34 @@ export default function App() {
 
 // --- VISTAS ESPECÍFICAS ---
 
-function HomeView({ videos, recentVideos, categories, upcomingVideos, onVideoSelect }) {
+function HomeView({ videos, recentVideos, categories, upcomingVideos, activities, onVideoSelect }) {
   // Hero Video (most recent published)
   const heroVideo = recentVideos[0];
-  const [showHeroInfo, setShowHeroInfo] = useState(false);
+  const [activeCategory, setActiveCategory] = useState(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const categoriesToRender = activeCategory ? [activeCategory] : categories;
+  const activitiesByMonth = activities
+    .filter(activity => activity?.date)
+    .map(activity => ({ ...activity, parsedDate: new Date(`${activity.date}T00:00:00`) }))
+    .filter(activity => !Number.isNaN(activity.parsedDate.valueOf()))
+    .sort((a, b) => a.parsedDate - b.parsedDate)
+    .reduce((acc, activity) => {
+      const monthKey = `${activity.parsedDate.getFullYear()}-${activity.parsedDate.getMonth()}`;
+      if (!acc[monthKey]) {
+        acc[monthKey] = {
+          label: activity.parsedDate.toLocaleDateString('es-GT', { month: 'long', year: 'numeric' }),
+          items: []
+        };
+      }
+      acc[monthKey].items.push(activity);
+      return acc;
+    }, {});
+  const monthKeys = Object.keys(activitiesByMonth);
 
   return (
     <div className="pb-10">
       {/* Hero Section */}
-      {heroVideo && (
+      {!activeCategory && heroVideo && (
         <div className="relative h-[70vh] w-full overflow-hidden">
           <div className="absolute inset-0">
             <img 
@@ -396,35 +434,95 @@ function HomeView({ videos, recentVideos, categories, upcomingVideos, onVideoSel
               >
                 <Play fill="black" size={24} /> Ver Ahora
               </button>
-              <button 
-                onClick={() => setShowHeroInfo((prev) => !prev)}
-                className="bg-gray-600/70 text-white px-8 py-3 rounded hover:bg-gray-600/90 font-bold flex items-center gap-2 backdrop-blur-sm transition"
-              >
-                <Info size={24} /> Más Info
-              </button>
             </div>
           </div>
+        </div>
+      )}
 
-          {showHeroInfo && (
-            <div className="absolute top-24 right-6 md:right-12 max-w-sm bg-black/80 border border-gray-700 rounded-lg p-4 text-sm text-gray-200 shadow-xl">
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <h3 className="font-bold text-white text-base">{heroVideo.title}</h3>
-                <button 
-                  onClick={() => setShowHeroInfo(false)} 
-                  className="text-gray-400 hover:text-white"
-                  aria-label="Cerrar descripción"
-                >
-                  <X size={16} />
-                </button>
+      <div className="px-8 md:px-16 mt-10">
+        <div className="bg-[#1c1c1c] border border-gray-800 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+          <div>
+            <p className="text-sm uppercase tracking-[0.25em] text-blue-400">Calendario de capacitación</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-white mt-2">Actividades programadas</h2>
+            <p className="text-gray-400 mt-2 max-w-2xl">
+              Consulta las fechas, organizadores y enlaces de inscripción de las actividades disponibles.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCalendar(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2"
+          >
+            <CalendarDays size={20} /> Ver calendario
+          </button>
+        </div>
+      </div>
+
+      {showCalendar && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center px-4 py-10">
+          <div className="bg-[#141414] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+              <div>
+                <h3 className="text-xl font-bold text-white">Calendario de actividades</h3>
+                <p className="text-sm text-gray-400">Solo se muestran los meses con actividades programadas.</p>
               </div>
-              <p className="text-gray-300 leading-relaxed">{heroVideo.description}</p>
+              <button
+                type="button"
+                onClick={() => setShowCalendar(false)}
+                className="text-gray-400 hover:text-white"
+                aria-label="Cerrar calendario"
+              >
+                <X size={18} />
+              </button>
             </div>
-          )}
+            <div className="px-6 py-6 overflow-y-auto max-h-[70vh] space-y-8">
+              {monthKeys.length === 0 && (
+                <div className="text-center text-gray-400 py-10">
+                  No hay actividades programadas por el momento.
+                </div>
+              )}
+              {monthKeys.map((key) => (
+                <div key={key}>
+                  <h4 className="text-lg font-semibold text-blue-300 mb-4 capitalize">
+                    {activitiesByMonth[key].label}
+                  </h4>
+                  <div className="grid gap-4">
+                    {activitiesByMonth[key].items.map((activity) => (
+                      <div key={activity.id} className="bg-[#1f1f1f] border border-gray-800 rounded-xl p-4 md:p-5">
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                          <div>
+                            <h5 className="text-lg font-bold text-white">{activity.title}</h5>
+                            <p className="text-sm text-gray-400">Organiza: {activity.organizer}</p>
+                          </div>
+                          <div className="text-sm text-gray-300">
+                            <p><span className="text-gray-400">Fecha:</span> {new Date(`${activity.date}T00:00:00`).toLocaleDateString('es-GT')}</p>
+                            <p><span className="text-gray-400">Hora:</span> {activity.time || 'Por confirmar'}</p>
+                            <p><span className="text-gray-400">Lugar:</span> {activity.location || 'Por confirmar'}</p>
+                          </div>
+                        </div>
+                        {activity.registrationLink && (
+                          <a
+                            href={activity.registrationLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 mt-4 text-sm text-blue-300 hover:text-blue-200"
+                          >
+                            <ExternalLink size={14} /> Formulario de inscripción
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Recién Añadidos */}
-      <div className="pl-8 md:pl-16 -mt-10 relative z-20">
+      {!activeCategory && (
+        <div className="pl-8 md:pl-16 -mt-10 relative z-20">
         <h2 className="text-xl md:text-2xl font-bold mb-4 text-white">Recién Añadidos</h2>
         <div className="flex gap-4 overflow-x-auto pb-8 pr-8 scrollbar-hide snap-x">
           {recentVideos.map(video => (
@@ -436,9 +534,10 @@ function HomeView({ videos, recentVideos, categories, upcomingVideos, onVideoSel
             />
           ))}
         </div>
-      </div>
+        </div>
+      )}
 
-      {upcomingVideos.length > 0 && (
+      {!activeCategory && upcomingVideos.length > 0 && (
         <div className="pl-8 md:pl-16 mt-8">
           <h2 className="text-xl md:text-2xl font-bold mb-4 text-white">Próximamente</h2>
           <div className="flex gap-4 overflow-x-auto pb-8 pr-8 scrollbar-hide snap-x">
@@ -455,18 +554,37 @@ function HomeView({ videos, recentVideos, categories, upcomingVideos, onVideoSel
       )}
 
       {/* Categorías */}
-      {categories.map(category => (
-        <div key={category} className="pl-8 md:pl-16 mt-8">
-          <h2 className="text-lg md:text-xl font-bold mb-4 text-gray-200 hover:text-blue-400 cursor-pointer transition">
-            {category}
-          </h2>
+      <div className="pl-8 md:pl-16 mt-10">
+        {activeCategory && (
+          <div className="flex flex-wrap items-center gap-4 mb-6">
+            <h2 className="text-2xl md:text-3xl font-bold text-white capitalize">{activeCategory}</h2>
+            <button
+              type="button"
+              onClick={() => setActiveCategory(null)}
+              className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-full text-gray-200"
+            >
+              Volver al inicio
+            </button>
+          </div>
+        )}
+      </div>
+      {categoriesToRender.map(category => (
+        <div key={category} className="pl-8 md:pl-16 mt-4">
+          {!activeCategory && (
+            <h2
+              className="text-lg md:text-xl font-bold mb-4 text-gray-200 hover:text-blue-400 cursor-pointer transition"
+              onClick={() => setActiveCategory(category)}
+            >
+              {category}
+            </h2>
+          )}
           <div className="flex gap-4 overflow-x-auto pb-4 pr-8 scrollbar-hide snap-x">
             {videos.filter(v => v.category === category).map(video => (
               <VideoCard 
                 key={video.id} 
                 video={video} 
                 onClick={() => onVideoSelect(video)} 
-                isSmall 
+                isSmall={!activeCategory} 
                 isPublished={isVideoPublished(video)}
               />
             ))}
@@ -908,29 +1026,44 @@ function LoginView({ onLogin, onBack, authError }) {
   );
 }
 
-function AdminDashboard({ videos, onVideosChange, onGenerateCertificate }) {
+function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange, onGenerateCertificate }) {
   const [editingVideo, setEditingVideo] = useState(null); // null = list mode, {} = create mode
   const [manualCertVideo, setManualCertVideo] = useState(null);
   const [manualProfile, setManualProfile] = useState({ name: '', collegiateNumber: '' });
   const [saveError, setSaveError] = useState('');
+  const [editingActivity, setEditingActivity] = useState(null);
+  const [activityError, setActivityError] = useState('');
   
   // State for form
   const [formData, setFormData] = useState({
     title: '', category: '', youtubeId: '', duration: '', description: '', thumbnail: '', scheduledAt: '', quizEnabled: false
   });
   const [questions, setQuestions] = useState([]);
+  const [activityForm, setActivityForm] = useState({
+    title: '',
+    organizer: '',
+    date: '',
+    time: '',
+    location: '',
+    registrationLink: ''
+  });
 
   const handleEdit = (video) => {
+    setSaveError('');
     setEditingVideo(video);
     setFormData({
       ...video,
       scheduledAt: video.scheduledAt || '',
       thumbnail: video.thumbnail || ''
     });
-    setQuestions(video.questions || []);
+    setQuestions((video.questions || []).map((question) => ({
+      ...question,
+      options: [...(question.options || [])]
+    })));
   };
 
   const handleCreate = () => {
+    setSaveError('');
     const empty = {
       id: Date.now(),
       title: '', category: '', youtubeId: '', duration: '', description: '', 
@@ -945,6 +1078,13 @@ function AdminDashboard({ videos, onVideosChange, onGenerateCertificate }) {
       options: ["Opción 1", "Opción 2", "Opción 3"],
       correctAnswer: 0
     })));
+  };
+
+  const updateQuestion = (idx, updater) => {
+    setQuestions((prev) => prev.map((question, index) => {
+      if (index !== idx) return question;
+      return updater(question);
+    }));
   };
 
   const handleSave = async () => {
@@ -973,6 +1113,56 @@ function AdminDashboard({ videos, onVideosChange, onGenerateCertificate }) {
     }
   };
 
+  const handleActivityEdit = (activity) => {
+    setActivityError('');
+    setEditingActivity(activity);
+    setActivityForm({
+      title: activity.title || '',
+      organizer: activity.organizer || '',
+      date: activity.date || '',
+      time: activity.time || '',
+      location: activity.location || '',
+      registrationLink: activity.registrationLink || ''
+    });
+  };
+
+  const handleActivitySave = async () => {
+    if (!activityForm.title || !activityForm.date) {
+      setActivityError('El título y la fecha de la actividad son obligatorios.');
+      return;
+    }
+    setActivityError('');
+    const nextActivity = { ...editingActivity, ...activityForm };
+    try {
+      const exists = activities.some(activity => activity.id === nextActivity.id);
+      const nextActivities = exists
+        ? activities.map(activity => activity.id === nextActivity.id ? nextActivity : activity)
+        : [...activities, nextActivity];
+      await onActivitiesChange(nextActivities);
+      setEditingActivity(null);
+      setActivityForm({
+        title: '',
+        organizer: '',
+        date: '',
+        time: '',
+        location: '',
+        registrationLink: ''
+      });
+    } catch (error) {
+      setActivityError(`No se pudo guardar la actividad: ${error.message}`);
+    }
+  };
+
+  const handleActivityDelete = async (id) => {
+    if (!confirm("¿Eliminar esta actividad?")) return;
+    setActivityError('');
+    try {
+      await onActivitiesChange(activities.filter(activity => activity.id !== id));
+    } catch (error) {
+      setActivityError(`No se pudo eliminar la actividad: ${error.message}`);
+    }
+  };
+
   const handleManualCertOpen = (video) => {
     setManualCertVideo(video);
     setManualProfile({ name: '', collegiateNumber: '' });
@@ -988,14 +1178,14 @@ function AdminDashboard({ videos, onVideosChange, onGenerateCertificate }) {
   };
 
   // Sub-component for Question Form inside Admin
-  const QuestionEditor = ({ q, idx, onChange }) => (
+  const QuestionEditor = ({ q, idx }) => (
     <div className="bg-gray-800 p-4 rounded mb-4 border border-gray-700">
       <div className="mb-2">
         <label className="text-xs text-blue-300">Pregunta {idx + 1}</label>
         <input 
           type="text" 
           value={q.question} 
-          onChange={e => onChange(idx, 'question', e.target.value)}
+          onChange={e => updateQuestion(idx, (question) => ({ ...question, question: e.target.value }))}
           className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white"
         />
       </div>
@@ -1006,9 +1196,11 @@ function AdminDashboard({ videos, onVideosChange, onGenerateCertificate }) {
               type="text" 
               value={opt} 
               onChange={e => {
-                const newOpts = [...q.options];
-                newOpts[optIdx] = e.target.value;
-                onChange(idx, 'options', newOpts);
+                updateQuestion(idx, (question) => {
+                  const newOpts = [...question.options];
+                  newOpts[optIdx] = e.target.value;
+                  return { ...question, options: newOpts };
+                });
               }}
               className={`w-full bg-gray-900 border rounded p-2 text-xs text-white ${q.correctAnswer === optIdx ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-600'}`}
               placeholder={`Opción ${optIdx + 1}`}
@@ -1018,7 +1210,7 @@ function AdminDashboard({ videos, onVideosChange, onGenerateCertificate }) {
                 type="radio" 
                 name={`correct-${idx}`} 
                 checked={q.correctAnswer === optIdx}
-                onChange={() => onChange(idx, 'correctAnswer', optIdx)}
+                onChange={() => updateQuestion(idx, (question) => ({ ...question, correctAnswer: optIdx }))}
               /> Correcta
             </label>
           </div>
@@ -1102,17 +1294,7 @@ function AdminDashboard({ videos, onVideosChange, onGenerateCertificate }) {
               <div className="space-y-4">
                 <p className="text-yellow-500 text-sm mb-4">Debes configurar exactamente 10 preguntas. Marca la respuesta correcta en cada una.</p>
                 {questions.map((q, idx) => (
-                  <QuestionEditor 
-                    key={idx} 
-                    q={q} 
-                    idx={idx} 
-                    onChange={(i, field, val) => {
-                      const newQ = [...questions];
-                      if (field === 'options') newQ[i].options = val;
-                      else newQ[i][field] = val;
-                      setQuestions(newQ);
-                    }} 
-                  />
+                  <QuestionEditor key={idx} q={q} idx={idx} />
                 ))}
               </div>
             )}
@@ -1124,17 +1306,148 @@ function AdminDashboard({ videos, onVideosChange, onGenerateCertificate }) {
 
   return (
     <div className="min-h-screen bg-[#141414] pt-24 px-4 md:px-16 text-white">
-      <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
-        <h1 className="text-3xl font-bold">Panel de Administración</h1>
-        <button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold flex items-center gap-2">
-          <Plus size={20} /> Nuevo Video
-        </button>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8 border-b border-gray-800 pb-4">
+        <div>
+          <h1 className="text-3xl font-bold">Panel de Administración</h1>
+          <p className="text-sm text-gray-400">Gestiona videos y actividades de capacitación.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold flex items-center gap-2">
+            <Plus size={20} /> Nuevo Video
+          </button>
+          <button onClick={() => { setEditingActivity({ id: Date.now() }); setActivityForm({ title: '', organizer: '', date: '', time: '', location: '', registrationLink: '' }); }} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded font-bold flex items-center gap-2">
+            <CalendarDays size={18} /> Nueva actividad
+          </button>
+        </div>
       </div>
       {saveError && (
         <div className="mb-6 rounded border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           {saveError}
         </div>
       )}
+      {activityError && (
+        <div className="mb-6 rounded border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {activityError}
+        </div>
+      )}
+
+      <div className="bg-[#1b1b1b] border border-gray-800 rounded-2xl p-6 mb-10">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-white">Actividades de capacitación</h2>
+          <span className="text-xs text-gray-400">{activities.length} actividades registradas</span>
+        </div>
+        {editingActivity !== null && (
+          <div className="bg-[#141414] border border-gray-800 rounded-xl p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Nombre de la actividad</label>
+                <input
+                  type="text"
+                  value={activityForm.title}
+                  onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
+                  className="w-full bg-black border border-gray-700 rounded p-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Organizador</label>
+                <input
+                  type="text"
+                  value={activityForm.organizer}
+                  onChange={(e) => setActivityForm({ ...activityForm, organizer: e.target.value })}
+                  className="w-full bg-black border border-gray-700 rounded p-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={activityForm.date}
+                  onChange={(e) => setActivityForm({ ...activityForm, date: e.target.value })}
+                  className="w-full bg-black border border-gray-700 rounded p-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Hora</label>
+                <input
+                  type="time"
+                  value={activityForm.time}
+                  onChange={(e) => setActivityForm({ ...activityForm, time: e.target.value })}
+                  className="w-full bg-black border border-gray-700 rounded p-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Lugar</label>
+                <input
+                  type="text"
+                  value={activityForm.location}
+                  onChange={(e) => setActivityForm({ ...activityForm, location: e.target.value })}
+                  className="w-full bg-black border border-gray-700 rounded p-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Enlace de inscripción (opcional)</label>
+                <input
+                  type="url"
+                  value={activityForm.registrationLink}
+                  onChange={(e) => setActivityForm({ ...activityForm, registrationLink: e.target.value })}
+                  className="w-full bg-black border border-gray-700 rounded p-2 text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => { setEditingActivity(null); setActivityForm({ title: '', organizer: '', date: '', time: '', location: '', registrationLink: '' }); }}
+                className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleActivitySave}
+                className="px-4 py-2 bg-green-600 rounded hover:bg-green-700 font-bold"
+              >
+                Guardar actividad
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {activities.map((activity) => (
+            <div key={activity.id} className="bg-[#141414] border border-gray-800 rounded-xl p-4">
+              <h3 className="text-lg font-bold text-white">{activity.title}</h3>
+              <p className="text-sm text-gray-400">Organiza: {activity.organizer || 'Por definir'}</p>
+              <div className="text-sm text-gray-300 mt-2 space-y-1">
+                <p><span className="text-gray-500">Fecha:</span> {activity.date ? new Date(`${activity.date}T00:00:00`).toLocaleDateString('es-GT') : 'Pendiente'}</p>
+                <p><span className="text-gray-500">Hora:</span> {activity.time || 'Por confirmar'}</p>
+                <p><span className="text-gray-500">Lugar:</span> {activity.location || 'Por confirmar'}</p>
+              </div>
+              {activity.registrationLink && (
+                <a
+                  href={activity.registrationLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 mt-3 text-sm text-blue-300 hover:text-blue-200"
+                >
+                  <ExternalLink size={14} /> Inscripción
+                </a>
+              )}
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => handleActivityEdit(activity)}
+                  className="flex-1 bg-blue-900/40 hover:bg-blue-900/60 text-blue-200 py-2 rounded text-sm transition"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => handleActivityDelete(activity.id)}
+                  className="px-3 bg-red-900/40 hover:bg-red-900/60 text-red-300 rounded transition"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {videos.map(video => (
