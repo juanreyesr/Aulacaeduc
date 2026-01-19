@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Play, CheckCircle, XCircle, LogOut, Plus, Trash2, Award, ChevronLeft, Lock, Save, ExternalLink, Menu, X, CalendarDays } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
@@ -489,27 +489,44 @@ function HomeView({ videos, recentVideos, categories, upcomingVideos, activities
                   <div className="grid gap-4">
                     {activitiesByMonth[key].items.map((activity) => (
                       <div key={activity.id} className="bg-[#1f1f1f] border border-gray-800 rounded-xl p-4 md:p-5">
-                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                          <div>
-                            <h5 className="text-lg font-bold text-white">{activity.title}</h5>
-                            <p className="text-sm text-gray-400">Organiza: {activity.organizer}</p>
-                          </div>
+                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                            <div>
+                              <h5 className="text-lg font-bold text-white">{activity.title}</h5>
+                              <p className="text-sm text-gray-400">Organiza: {activity.organizer}</p>
+                              {activity.isFull && (
+                                <span className="inline-flex mt-2 text-xs uppercase tracking-wide bg-red-500/20 text-red-200 border border-red-500/40 px-2 py-1 rounded-full">
+                                  Cupo lleno
+                                </span>
+                              )}
+                            </div>
                           <div className="text-sm text-gray-300">
                             <p><span className="text-gray-400">Fecha:</span> {new Date(`${activity.date}T00:00:00`).toLocaleDateString('es-GT')}</p>
                             <p><span className="text-gray-400">Hora:</span> {activity.time || 'Por confirmar'}</p>
                             <p><span className="text-gray-400">Lugar:</span> {activity.location || 'Por confirmar'}</p>
                           </div>
                         </div>
-                        {activity.registrationLink && (
-                          <a
-                            href={activity.registrationLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 mt-4 text-sm text-blue-300 hover:text-blue-200"
-                          >
-                            <ExternalLink size={14} /> Formulario de inscripción
-                          </a>
-                        )}
+                        <div className="flex flex-wrap gap-4 mt-4">
+                          {activity.meetingLink && (
+                            <a
+                              href={activity.meetingLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200"
+                            >
+                              <ExternalLink size={14} /> Enlace de actividad
+                            </a>
+                          )}
+                          {activity.registrationLink && (
+                            <a
+                              href={activity.registrationLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200"
+                            >
+                              <ExternalLink size={14} /> Formulario de inscripción
+                            </a>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1026,6 +1043,49 @@ function LoginView({ onLogin, onBack, authError }) {
   );
 }
 
+function QuestionEditor({ question, idx, onQuestionChange }) {
+  return (
+    <div className="bg-gray-800 p-4 rounded mb-4 border border-gray-700">
+      <div className="mb-2">
+        <label className="text-xs text-blue-300">Pregunta {idx + 1}</label>
+        <input
+          type="text"
+          value={question.question}
+          onChange={(e) => onQuestionChange(idx, (current) => ({ ...current, question: e.target.value }))}
+          className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white"
+        />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {question.options.map((opt, optIdx) => (
+          <div key={optIdx} className="flex flex-col">
+            <input
+              type="text"
+              value={opt}
+              onChange={(e) => {
+                onQuestionChange(idx, (current) => {
+                  const newOpts = [...current.options];
+                  newOpts[optIdx] = e.target.value;
+                  return { ...current, options: newOpts };
+                });
+              }}
+              className={`w-full bg-gray-900 border rounded p-2 text-xs text-white ${question.correctAnswer === optIdx ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-600'}`}
+              placeholder={`Opción ${optIdx + 1}`}
+            />
+            <label className="flex items-center gap-1 mt-1 text-xs text-gray-400 cursor-pointer">
+              <input
+                type="radio"
+                name={`correct-${idx}`}
+                checked={question.correctAnswer === optIdx}
+                onChange={() => onQuestionChange(idx, (current) => ({ ...current, correctAnswer: optIdx }))}
+              /> Correcta
+            </label>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange, onGenerateCertificate }) {
   const [editingVideo, setEditingVideo] = useState(null); // null = list mode, {} = create mode
   const [manualCertVideo, setManualCertVideo] = useState(null);
@@ -1045,7 +1105,9 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
     date: '',
     time: '',
     location: '',
-    registrationLink: ''
+    registrationLink: '',
+    meetingLink: '',
+    isFull: false
   });
 
   const handleEdit = (video) => {
@@ -1080,12 +1142,12 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
     })));
   };
 
-  const updateQuestion = (idx, updater) => {
+  const updateQuestion = useCallback((idx, updater) => {
     setQuestions((prev) => prev.map((question, index) => {
       if (index !== idx) return question;
       return updater(question);
     }));
-  };
+  }, []);
 
   const handleSave = async () => {
     const newVideo = { ...formData, questions: questions };
@@ -1122,7 +1184,9 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
       date: activity.date || '',
       time: activity.time || '',
       location: activity.location || '',
-      registrationLink: activity.registrationLink || ''
+      registrationLink: activity.registrationLink || '',
+      meetingLink: activity.meetingLink || '',
+      isFull: Boolean(activity.isFull)
     });
   };
 
@@ -1146,7 +1210,9 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
         date: '',
         time: '',
         location: '',
-        registrationLink: ''
+        registrationLink: '',
+        meetingLink: '',
+        isFull: false
       });
     } catch (error) {
       setActivityError(`No se pudo guardar la actividad: ${error.message}`);
@@ -1176,48 +1242,6 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
     onGenerateCertificate(manualCertVideo, manualProfile);
     setManualCertVideo(null);
   };
-
-  // Sub-component for Question Form inside Admin
-  const QuestionEditor = ({ q, idx }) => (
-    <div className="bg-gray-800 p-4 rounded mb-4 border border-gray-700">
-      <div className="mb-2">
-        <label className="text-xs text-blue-300">Pregunta {idx + 1}</label>
-        <input 
-          type="text" 
-          value={q.question} 
-          onChange={e => updateQuestion(idx, (question) => ({ ...question, question: e.target.value }))}
-          className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white"
-        />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        {q.options.map((opt, optIdx) => (
-          <div key={optIdx} className="flex flex-col">
-            <input 
-              type="text" 
-              value={opt} 
-              onChange={e => {
-                updateQuestion(idx, (question) => {
-                  const newOpts = [...question.options];
-                  newOpts[optIdx] = e.target.value;
-                  return { ...question, options: newOpts };
-                });
-              }}
-              className={`w-full bg-gray-900 border rounded p-2 text-xs text-white ${q.correctAnswer === optIdx ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-600'}`}
-              placeholder={`Opción ${optIdx + 1}`}
-            />
-            <label className="flex items-center gap-1 mt-1 text-xs text-gray-400 cursor-pointer">
-              <input 
-                type="radio" 
-                name={`correct-${idx}`} 
-                checked={q.correctAnswer === optIdx}
-                onChange={() => updateQuestion(idx, (question) => ({ ...question, correctAnswer: optIdx }))}
-              /> Correcta
-            </label>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 
   if (editingVideo) {
     return (
@@ -1294,7 +1318,7 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
               <div className="space-y-4">
                 <p className="text-yellow-500 text-sm mb-4">Debes configurar exactamente 10 preguntas. Marca la respuesta correcta en cada una.</p>
                 {questions.map((q, idx) => (
-                  <QuestionEditor key={idx} q={q} idx={idx} />
+                  <QuestionEditor key={idx} question={q} idx={idx} onQuestionChange={updateQuestion} />
                 ))}
               </div>
             )}
@@ -1315,7 +1339,7 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
           <button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold flex items-center gap-2">
             <Plus size={20} /> Nuevo Video
           </button>
-          <button onClick={() => { setEditingActivity({ id: Date.now() }); setActivityForm({ title: '', organizer: '', date: '', time: '', location: '', registrationLink: '' }); }} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded font-bold flex items-center gap-2">
+          <button onClick={() => { setEditingActivity({ id: Date.now() }); setActivityForm({ title: '', organizer: '', date: '', time: '', location: '', registrationLink: '', meetingLink: '', isFull: false }); }} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded font-bold flex items-center gap-2">
             <CalendarDays size={18} /> Nueva actividad
           </button>
         </div>
@@ -1385,6 +1409,15 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
                 />
               </div>
               <div>
+                <label className="block text-sm text-gray-400 mb-1">Enlace de la actividad (Zoom/Meet)</label>
+                <input
+                  type="url"
+                  value={activityForm.meetingLink}
+                  onChange={(e) => setActivityForm({ ...activityForm, meetingLink: e.target.value })}
+                  className="w-full bg-black border border-gray-700 rounded p-2 text-white"
+                />
+              </div>
+              <div>
                 <label className="block text-sm text-gray-400 mb-1">Enlace de inscripción (opcional)</label>
                 <input
                   type="url"
@@ -1393,10 +1426,20 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
                   className="w-full bg-black border border-gray-700 rounded p-2 text-white"
                 />
               </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="activity-full"
+                  type="checkbox"
+                  checked={activityForm.isFull}
+                  onChange={(e) => setActivityForm({ ...activityForm, isFull: e.target.checked })}
+                  className="w-5 h-5 text-blue-600 rounded"
+                />
+                <label htmlFor="activity-full" className="text-sm text-gray-300">Cupo lleno</label>
+              </div>
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <button
-                onClick={() => { setEditingActivity(null); setActivityForm({ title: '', organizer: '', date: '', time: '', location: '', registrationLink: '' }); }}
+                onClick={() => { setEditingActivity(null); setActivityForm({ title: '', organizer: '', date: '', time: '', location: '', registrationLink: '', meetingLink: '', isFull: false }); }}
                 className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
               >
                 Cancelar
@@ -1413,13 +1456,30 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {activities.map((activity) => (
             <div key={activity.id} className="bg-[#141414] border border-gray-800 rounded-xl p-4">
-              <h3 className="text-lg font-bold text-white">{activity.title}</h3>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-bold text-white">{activity.title}</h3>
+                {activity.isFull && (
+                  <span className="text-xs uppercase tracking-wide bg-red-500/20 text-red-200 border border-red-500/40 px-2 py-1 rounded-full">
+                    Cupo lleno
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-400">Organiza: {activity.organizer || 'Por definir'}</p>
               <div className="text-sm text-gray-300 mt-2 space-y-1">
                 <p><span className="text-gray-500">Fecha:</span> {activity.date ? new Date(`${activity.date}T00:00:00`).toLocaleDateString('es-GT') : 'Pendiente'}</p>
                 <p><span className="text-gray-500">Hora:</span> {activity.time || 'Por confirmar'}</p>
                 <p><span className="text-gray-500">Lugar:</span> {activity.location || 'Por confirmar'}</p>
               </div>
+              {activity.meetingLink && (
+                <a
+                  href={activity.meetingLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 mt-3 text-sm text-blue-300 hover:text-blue-200"
+                >
+                  <ExternalLink size={14} /> Enlace de actividad
+                </a>
+              )}
               {activity.registrationLink && (
                 <a
                   href={activity.registrationLink}
