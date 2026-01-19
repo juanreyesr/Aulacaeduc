@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Info, CheckCircle, XCircle, LogOut, Plus, Trash2, Award, ChevronLeft, Lock, Save, ExternalLink, Menu, X } from 'lucide-react';
+import { supabase } from './supabaseClient';
 
 // --- CONFIGURACIÓN Y DATOS INICIALES ---
 
@@ -54,26 +55,6 @@ const INITIAL_VIDEOS = [
     }))
   }
 ];
-
-const encodeVideosPayload = (videos) => {
-  try {
-    const json = JSON.stringify(videos);
-    return btoa(encodeURIComponent(json));
-  } catch (error) {
-    return '';
-  }
-};
-
-const decodeVideosPayload = (payload) => {
-  if (!payload) return null;
-  try {
-    const json = decodeURIComponent(atob(payload.trim().replaceAll(' ', '+')));
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : null;
-  } catch (error) {
-    return null;
-  }
-};
 
 const extractYouTubeId = (value) => {
   if (!value) return '';
@@ -141,51 +122,83 @@ export default function App() {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [manualCertificate, setManualCertificate] = useState(null);
+  const [authError, setAuthError] = useState('');
   
   // Estado de Usuario (para certificados)
   const [userProfile, setUserProfile] = useState({ name: '', collegiateNumber: '' });
 
   // Cargar datos (simulación de persistencia)
   useEffect(() => {
-    const savedVideos = localStorage.getItem('cpg_videos');
-    const params = new URLSearchParams(window.location.search);
-    const syncParam = params.get('sync');
-    const syncedVideos = decodeVideosPayload(syncParam);
-    if (syncedVideos) {
-      setVideos(syncedVideos);
-      localStorage.setItem('cpg_videos', JSON.stringify(syncedVideos));
-      params.delete('sync');
-      const cleanQuery = params.toString();
-      const newUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ''}${window.location.hash}`;
-      window.history.replaceState({}, '', newUrl);
-      return;
-    }
-    if (savedVideos) {
-      setVideos(JSON.parse(savedVideos));
-    } else {
-      setVideos(INITIAL_VIDEOS);
-    }
+    const loadVideos = async () => {
+      const savedVideos = localStorage.getItem('cpg_videos');
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('cpg_content')
+            .select('videos')
+            .eq('id', 1)
+            .single();
+          if (!error && data?.videos?.length) {
+            setVideos(data.videos);
+            localStorage.setItem('cpg_videos', JSON.stringify(data.videos));
+            return;
+          }
+        } catch (error) {
+          // fallback to local storage
+        }
+      }
+
+      if (savedVideos) {
+        setVideos(JSON.parse(savedVideos));
+      } else {
+        setVideos(INITIAL_VIDEOS);
+      }
+    };
+
+    loadVideos();
   }, []);
 
   // Guardar datos cuando cambian
-  useEffect(() => {
-    if (videos.length > 0) {
-      localStorage.setItem('cpg_videos', JSON.stringify(videos));
+  const persistVideos = async (nextVideos) => {
+    setVideos(nextVideos);
+    if (nextVideos.length > 0) {
+      localStorage.setItem('cpg_videos', JSON.stringify(nextVideos));
     }
-  }, [videos]);
-
-  // --- NAVEGACIÓN Y VISTAS ---
-
-  const handleLogin = (email, password) => {
-    if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
-      setIsAdmin(true);
-      setView('admin');
-    } else {
-      alert("Credenciales incorrectas");
+    if (supabase) {
+      const { error } = await supabase
+        .from('cpg_content')
+        .upsert({ id: 1, videos: nextVideos }, { onConflict: 'id' });
+      if (error) {
+        throw new Error(error.message);
+      }
     }
   };
 
-  const handleLogout = () => {
+  // --- NAVEGACIÓN Y VISTAS ---
+
+  const handleLogin = async (email, password) => {
+    setAuthError('');
+    if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
+      if (!supabase) {
+        setAuthError("No se encontró la configuración de Supabase. Verifica las variables VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.");
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setAuthError(`No se pudo iniciar sesión: ${error.message}`);
+        return;
+      }
+      setIsAdmin(true);
+      setView('admin');
+    } else {
+      setAuthError("Credenciales incorrectas");
+    }
+  };
+
+  const handleLogout = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     setIsAdmin(false);
     setView('home');
   };
@@ -282,13 +295,13 @@ export default function App() {
         )}
 
         {view === 'login' && (
-          <LoginView onLogin={handleLogin} onBack={() => setView('home')} />
+          <LoginView onLogin={handleLogin} onBack={() => setView('home')} authError={authError} />
         )}
 
         {view === 'admin' && isAdmin && (
           <AdminDashboard 
             videos={videos} 
-            setVideos={setVideos} 
+            onVideosChange={persistVideos}
             onGenerateCertificate={handleManualCertificate}
           />
         )}
@@ -846,7 +859,7 @@ function CertificateView({ video, userProfile, onBack }) {
   );
 }
 
-function LoginView({ onLogin, onBack }) {
+function LoginView({ onLogin, onBack, authError }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -860,6 +873,11 @@ function LoginView({ onLogin, onBack }) {
       <div className="w-full max-w-md bg-[#141414] p-8 rounded-lg shadow-2xl border border-gray-800 relative">
         <button onClick={onBack} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X /></button>
         <h2 className="text-3xl font-bold mb-8 text-white">Administrador</h2>
+        {authError && (
+          <div className="mb-6 rounded border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {authError}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-gray-400 text-sm mb-2">Correo Electrónico</label>
@@ -890,11 +908,11 @@ function LoginView({ onLogin, onBack }) {
   );
 }
 
-function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
+function AdminDashboard({ videos, onVideosChange, onGenerateCertificate }) {
   const [editingVideo, setEditingVideo] = useState(null); // null = list mode, {} = create mode
   const [manualCertVideo, setManualCertVideo] = useState(null);
   const [manualProfile, setManualProfile] = useState({ name: '', collegiateNumber: '' });
-  const [syncCode, setSyncCode] = useState('');
+  const [saveError, setSaveError] = useState('');
   
   // State for form
   const [formData, setFormData] = useState({
@@ -929,20 +947,29 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
     })));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newVideo = { ...formData, questions: questions };
-    
-    if (videos.some(v => v.id === newVideo.id)) {
-      setVideos(videos.map(v => v.id === newVideo.id ? newVideo : v));
-    } else {
-      setVideos([...videos, newVideo]);
+    setSaveError('');
+    try {
+      if (videos.some(v => v.id === newVideo.id)) {
+        await onVideosChange(videos.map(v => v.id === newVideo.id ? newVideo : v));
+      } else {
+        await onVideosChange([...videos, newVideo]);
+      }
+      setEditingVideo(null);
+    } catch (error) {
+      setSaveError(`No se pudieron guardar los cambios: ${error.message}`);
     }
-    setEditingVideo(null);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm("¿Estás seguro de eliminar este video?")) {
-      setVideos(videos.filter(v => v.id !== id));
+      setSaveError('');
+      try {
+        await onVideosChange(videos.filter(v => v.id !== id));
+      } catch (error) {
+        setSaveError(`No se pudo eliminar el video: ${error.message}`);
+      }
     }
   };
 
@@ -958,31 +985,6 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
     }
     onGenerateCertificate(manualCertVideo, manualProfile);
     setManualCertVideo(null);
-  };
-
-  const handleCopySyncCode = async () => {
-    const payload = encodeVideosPayload(videos);
-    if (!payload) {
-      alert("No se pudo generar el código de sincronización.");
-      return;
-    }
-    setSyncCode(payload);
-    try {
-      await navigator.clipboard.writeText(payload);
-      alert("Código de sincronización copiado.");
-    } catch (error) {
-      alert("Copia manualmente el código de sincronización mostrado.");
-    }
-  };
-
-  const handleImportSyncCode = () => {
-    const decoded = decodeVideosPayload(syncCode);
-    if (!decoded) {
-      alert("El código no es válido. Verifica y vuelve a intentarlo.");
-      return;
-    }
-    setVideos(decoded);
-    alert("Contenido sincronizado correctamente.");
   };
 
   // Sub-component for Question Form inside Admin
@@ -1029,13 +1031,18 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
     return (
       <div className="min-h-screen bg-[#141414] pt-24 px-4 md:px-16 pb-12 text-white">
         <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">{formData.id ? 'Editar Video' : 'Nuevo Video'}</h2>
-            <div className="flex gap-2">
-              <button onClick={() => setEditingVideo(null)} className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">Cancelar</button>
-              <button onClick={handleSave} className="px-4 py-2 bg-green-600 rounded hover:bg-green-700 font-bold">Guardar Cambios</button>
-            </div>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">{formData.id ? 'Editar Video' : 'Nuevo Video'}</h2>
+          <div className="flex gap-2">
+            <button onClick={() => setEditingVideo(null)} className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">Cancelar</button>
+            <button onClick={handleSave} className="px-4 py-2 bg-green-600 rounded hover:bg-green-700 font-bold">Guardar Cambios</button>
           </div>
+        </div>
+        {saveError && (
+          <div className="mb-6 rounded border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {saveError}
+          </div>
+        )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="space-y-4">
@@ -1123,36 +1130,11 @@ function AdminDashboard({ videos, setVideos, onGenerateCertificate }) {
           <Plus size={20} /> Nuevo Video
         </button>
       </div>
-
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-bold mb-2">Sincronizar contenido con móvil</h2>
-        <p className="text-sm text-gray-400 mb-4">
-          Las listas de videos se guardan en cada dispositivo. Usa este código para copiar el contenido del
-          escritorio y pegarlo en tu móvil. También puedes añadir <span className="text-blue-300">?sync=CODIGO</span> en la URL del móvil para importar al abrir.
-        </p>
-        <div className="flex flex-col lg:flex-row gap-3">
-          <button
-            type="button"
-            onClick={handleCopySyncCode}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-semibold"
-          >
-            Generar y copiar código
-          </button>
-          <textarea
-            value={syncCode}
-            onChange={(e) => setSyncCode(e.target.value)}
-            placeholder="Pega aquí el código desde otro dispositivo"
-            className="flex-1 bg-gray-950 border border-gray-700 px-3 py-2 rounded text-sm text-white min-h-[48px]"
-          />
-          <button
-            type="button"
-            onClick={handleImportSyncCode}
-            className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-semibold"
-          >
-            Importar código
-          </button>
+      {saveError && (
+        <div className="mb-6 rounded border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {saveError}
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {videos.map(video => (
