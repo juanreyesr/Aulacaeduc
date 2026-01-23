@@ -541,18 +541,18 @@ function HomeView({ videos, recentVideos, categories, upcomingVideos, activities
 
       {/* Recién Añadidos */}
       {!activeCategory && (
-        <div className="pl-8 md:pl-16 -mt-10 relative z-20">
-        <h2 className="text-xl md:text-2xl font-bold mb-4 text-white">Recién Añadidos</h2>
-        <div className="flex gap-4 overflow-x-auto pb-8 pr-8 scrollbar-hide snap-x">
-          {recentVideos.map(video => (
-            <VideoCard 
-              key={video.id} 
-              video={video} 
-              onClick={() => onVideoSelect(video)} 
-              isPublished={isVideoPublished(video)}
-            />
-          ))}
-        </div>
+        <div className="pl-8 md:pl-16 mt-8 md:mt-12 relative z-20">
+          <h2 className="text-xl md:text-2xl font-bold mb-4 text-white">Recién Añadidos</h2>
+          <div className="flex gap-4 overflow-x-auto pb-8 pr-8 scrollbar-hide snap-x">
+            {recentVideos.map(video => (
+              <VideoCard 
+                key={video.id} 
+                video={video} 
+                onClick={() => onVideoSelect(video)} 
+                isPublished={isVideoPublished(video)}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -1095,6 +1095,9 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
   const [saveError, setSaveError] = useState('');
   const [editingActivity, setEditingActivity] = useState(null);
   const [activityError, setActivityError] = useState('');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportRange, setReportRange] = useState({ start: '', end: '' });
+  const [reportError, setReportError] = useState('');
   
   // State for form
   const [formData, setFormData] = useState({
@@ -1231,6 +1234,85 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
     }
   };
 
+  const handleReportOpen = () => {
+    setReportError('');
+    setShowReportModal(true);
+  };
+
+  const handleReportGenerate = () => {
+    if (!reportRange.start || !reportRange.end) {
+      setReportError('Selecciona un rango de fechas completo para generar el informe.');
+      return;
+    }
+    const startDate = new Date(`${reportRange.start}T00:00:00`);
+    const endDate = new Date(`${reportRange.end}T23:59:59`);
+    if (Number.isNaN(startDate.valueOf()) || Number.isNaN(endDate.valueOf())) {
+      setReportError('El rango de fechas no es válido.');
+      return;
+    }
+    if (endDate < startDate) {
+      setReportError('La fecha final debe ser posterior a la fecha inicial.');
+      return;
+    }
+
+    const filteredActivities = activities
+      .filter(activity => activity?.date)
+      .map(activity => ({
+        ...activity,
+        parsedDate: new Date(`${activity.date}T00:00:00`)
+      }))
+      .filter(activity => !Number.isNaN(activity.parsedDate.valueOf()))
+      .filter(activity => activity.parsedDate >= startDate && activity.parsedDate <= endDate);
+
+    if (filteredActivities.length === 0) {
+      setReportError('No hay actividades registradas en este rango.');
+      return;
+    }
+
+    const escapeCsv = (value) => {
+      if (value === null || value === undefined) return '';
+      const stringValue = String(value);
+      if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    const headers = [
+      'Título',
+      'Organizador',
+      'Fecha',
+      'Hora',
+      'Lugar',
+      'Cupo lleno',
+      'Enlace actividad',
+      'Enlace inscripción'
+    ];
+
+    const rows = filteredActivities.map(activity => ([
+      activity.title,
+      activity.organizer || 'Por definir',
+      activity.date,
+      activity.time || 'Por confirmar',
+      activity.location || 'Por confirmar',
+      activity.isFull ? 'Sí' : 'No',
+      activity.meetingLink || '',
+      activity.registrationLink || ''
+    ]));
+
+    const csvContent = [headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n');
+    const blob = new Blob([`\ufeff${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `informe-actividades-${reportRange.start}-a-${reportRange.end}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setShowReportModal(false);
+  };
+
   const handleManualCertOpen = (video) => {
     setManualCertVideo(video);
     setManualProfile({ name: '', collegiateNumber: '' });
@@ -1358,9 +1440,18 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
       )}
 
       <div className="bg-[#1b1b1b] border border-gray-800 rounded-2xl p-6 mb-10">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-white">Actividades de capacitación</h2>
-          <span className="text-xs text-gray-400">{activities.length} actividades registradas</span>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-white">Actividades de capacitación</h2>
+            <span className="text-xs text-gray-400">{activities.length} actividades registradas</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleReportOpen}
+            className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded font-semibold text-sm"
+          >
+            Informe de actividades
+          </button>
         </div>
         {editingActivity !== null && (
           <div className="bg-[#141414] border border-gray-800 rounded-xl p-4 mb-6">
@@ -1510,6 +1601,70 @@ function AdminDashboard({ videos, activities, onVideosChange, onActivitiesChange
           ))}
         </div>
       </div>
+
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/70 z-[70] flex items-center justify-center px-4 py-10">
+          <div className="bg-[#141414] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+              <div>
+                <h3 className="text-lg font-bold text-white">Informe de actividades</h3>
+                <p className="text-sm text-gray-400">Selecciona el rango de fechas para el informe.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReportModal(false)}
+                className="text-gray-400 hover:text-white"
+                aria-label="Cerrar informe"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-6 space-y-4">
+              {reportError && (
+                <div className="rounded border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {reportError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Desde</label>
+                  <input
+                    type="date"
+                    value={reportRange.start}
+                    onChange={(e) => setReportRange({ ...reportRange, start: e.target.value })}
+                    className="w-full bg-black border border-gray-700 rounded p-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Hasta</label>
+                  <input
+                    type="date"
+                    value={reportRange.end}
+                    onChange={(e) => setReportRange({ ...reportRange, end: e.target.value })}
+                    className="w-full bg-black border border-gray-700 rounded p-2 text-white"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-800">
+              <button
+                type="button"
+                onClick={() => setShowReportModal(false)}
+                className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleReportGenerate}
+                className="px-4 py-2 bg-emerald-600 rounded hover:bg-emerald-700 font-bold"
+              >
+                Descargar informe
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {videos.map(video => (
