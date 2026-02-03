@@ -1005,7 +1005,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Nombre del profesional - en la línea debajo de "Por medio del presente hace constar que:" */}
             <div 
               className="absolute text-center"
-              style={{ top: '222px', left: '50%', transform: 'translateX(-50%)', width: '650px' }}
+              style={{ top: '232px', left: '50%', transform: 'translateX(-50%)', width: '650px' }}
             >
               <p 
                 className="font-bold text-[#1a1a2e]"
@@ -1022,7 +1022,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Número de colegiado - después de "NÚMERO DE COLEGIADO:" */}
             <div 
               className="absolute"
-              style={{ top: '302px', left: '595px' }}
+              style={{ top: '330px', left: '595px' }}
             >
               <p 
                 className="text-[#1a1a2e] font-semibold"
@@ -1038,7 +1038,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Nombre del curso - debajo de "Ha completado y aprobado satisfactoriamente el curso virtual:" */}
             <div 
               className="absolute text-center"
-              style={{ top: '388px', left: '50%', transform: 'translateX(-50%)', width: '750px' }}
+              style={{ top: '412px', left: '50%', transform: 'translateX(-50%)', width: '750px' }}
             >
               <p 
                 className="font-bold text-[#1a1a2e] uppercase"
@@ -1055,7 +1055,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Horas acreditadas - entre "Acreditando" y "horas de formación continua." */}
             <div 
               className="absolute"
-              style={{ top: '448px', left: '445px' }}
+              style={{ top: '452px', left: '445px' }}
             >
               <p 
                 className="text-[#1a1a2e] font-bold"
@@ -1132,7 +1132,7 @@ function CertificateView({ video, userProfile, onBack }) {
             <div className="text-center mb-8">
               <div className="w-64 border-b border-black mb-2 mx-auto"></div>
               <p className="text-sm">Comisión de Acreditación y Educación Continua</p>
-              <p className="text-sm text-gray-600">Evaluación Aprobada: {currentDate.toLocaleDateString('es-GT')}</p>
+              <p className="text-sm text-gray-600">Evaluación Aprobada {currentDate.toLocaleDateString('es-GT')}</p>
               <p className="text-xs text-gray-500 mt-2">{certificateCode}</p>
             </div>
           </div>
