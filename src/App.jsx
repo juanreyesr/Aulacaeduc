@@ -1022,7 +1022,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Número de colegiado - después de "NÚMERO DE COLEGIADO:" */}
             <div 
               className="absolute"
-              style={{ top: '370px', left: '555px' }}
+              style={{ top: '364px', left: '555px' }}
             >
               <p 
                 className="text-[#1a1a2e] font-semibold"
@@ -1038,7 +1038,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Nombre del curso - debajo de "Ha completado y aprobado satisfactoriamente el curso virtual:" */}
             <div 
               className="absolute text-center"
-              style={{ top: '452px', left: '50%', transform: 'translateX(-50%)', width: '750px' }}
+              style={{ top: '460px', left: '50%', transform: 'translateX(-50%)', width: '750px' }}
             >
               <p 
                 className="font-bold text-[#1a1a2e] uppercase"
@@ -1055,7 +1055,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Horas acreditadas - entre "Acreditando" y "horas de formación continua." */}
             <div 
               className="absolute"
-              style={{ top: '516px', left: '445px' }}
+              style={{ top: '520px', left: '445px' }}
             >
               <p 
                 className="text-[#1a1a2e] font-bold"
