@@ -915,7 +915,6 @@ function CertificateView({ video, userProfile, onBack }) {
     setIsGenerating(true);
     
     try {
-      // Capturar el certificado como imagen con alta calidad
       const canvas = await html2canvas(certRef.current, {
         scale: 3,
         useCORS: true,
@@ -925,7 +924,6 @@ function CertificateView({ video, userProfile, onBack }) {
         imageTimeout: 15000
       });
       
-      // Crear PDF en orientación horizontal (Letter landscape)
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -936,10 +934,8 @@ function CertificateView({ video, userProfile, onBack }) {
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      // Agregar imagen al PDF ocupando toda la página
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       
-      // Descargar el PDF
       const fileName = `Certificado_${userProfile.name.replace(/\s+/g, '_')}_${certificateCode}.pdf`;
       pdf.save(fileName);
       
@@ -998,57 +994,56 @@ function CertificateView({ video, userProfile, onBack }) {
             onLoad={() => setImageLoaded(true)}
             onError={(e) => {
               console.error('Error cargando plantilla');
-              // Fallback: usar un fondo blanco con borde
               e.target.style.display = 'none';
               setImageLoaded(true);
             }}
           />
           
           {/* Contenido superpuesto - Datos dinámicos */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-black">
+          <div className="absolute inset-0">
             
-            {/* Nombre del profesional - posicionado debajo de "Por medio del presente hace constar que:" */}
+            {/* Nombre del profesional - en la línea debajo de "Por medio del presente hace constar que:" */}
             <div 
               className="absolute text-center"
-              style={{ top: '270px', left: '50%', transform: 'translateX(-50%)', width: '600px' }}
+              style={{ top: '222px', left: '50%', transform: 'translateX(-50%)', width: '650px' }}
             >
               <p 
                 className="font-bold text-[#1a1a2e]"
                 style={{ 
-                  fontSize: '32px',
+                  fontSize: '38px',
                   fontFamily: "'Georgia', serif",
-                  letterSpacing: '1px'
+                  letterSpacing: '0.5px'
                 }}
               >
                 {userProfile.name}
               </p>
             </div>
 
-            {/* Número de colegiado */}
+            {/* Número de colegiado - después de "NÚMERO DE COLEGIADO:" */}
             <div 
               className="absolute"
-              style={{ top: '340px', left: '50%', transform: 'translateX(-50%)' }}
+              style={{ top: '302px', left: '595px' }}
             >
               <p 
-                className="text-gray-800"
+                className="text-[#1a1a2e] font-semibold"
                 style={{ 
-                  fontSize: '18px',
+                  fontSize: '16px',
                   fontFamily: "'Georgia', serif"
                 }}
               >
-                <span className="font-semibold">{userProfile.collegiateNumber}</span>
+                {userProfile.collegiateNumber}
               </p>
             </div>
 
-            {/* Nombre del curso */}
+            {/* Nombre del curso - debajo de "Ha completado y aprobado satisfactoriamente el curso virtual:" */}
             <div 
               className="absolute text-center"
-              style={{ top: '435px', left: '50%', transform: 'translateX(-50%)', width: '700px' }}
+              style={{ top: '388px', left: '50%', transform: 'translateX(-50%)', width: '750px' }}
             >
               <p 
                 className="font-bold text-[#1a1a2e] uppercase"
                 style={{ 
-                  fontSize: '22px',
+                  fontSize: '24px',
                   fontFamily: "'Georgia', serif",
                   lineHeight: '1.3'
                 }}
@@ -1057,29 +1052,29 @@ function CertificateView({ video, userProfile, onBack }) {
               </p>
             </div>
 
-            {/* Horas acreditadas */}
+            {/* Horas acreditadas - entre "Acreditando" y "horas de formación continua." */}
             <div 
               className="absolute"
-              style={{ top: '500px', left: '50%', transform: 'translateX(-50%)' }}
+              style={{ top: '448px', left: '445px' }}
             >
               <p 
-                className="text-gray-800 italic"
+                className="text-[#1a1a2e] font-bold"
                 style={{ 
                   fontSize: '18px',
                   fontFamily: "'Georgia', serif"
                 }}
               >
-                <span className="font-bold text-[#003366]">{video.duration}</span>
+                {video.duration}
               </p>
             </div>
 
-            {/* Fecha de evaluación aprobada */}
+            {/* Fecha de evaluación aprobada - después de "Evaluación Aprobada:" */}
             <div 
-              className="absolute text-center"
-              style={{ top: '620px', left: '50%', transform: 'translateX(-50%)' }}
+              className="absolute"
+              style={{ top: '565px', left: '50%', transform: 'translateX(-50%)' }}
             >
               <p 
-                className="text-gray-700"
+                className="text-[#333]"
                 style={{ 
                   fontSize: '14px',
                   fontFamily: "'Georgia', serif"
@@ -1093,16 +1088,17 @@ function CertificateView({ video, userProfile, onBack }) {
               </p>
             </div>
 
-            {/* Código del certificado (pequeño, en la esquina) */}
+            {/* Código del certificado - sobre la línea amarilla */}
             <div 
               className="absolute"
-              style={{ bottom: '25px', right: '40px' }}
+              style={{ bottom: '95px', right: '50px' }}
             >
               <p 
-                className="text-gray-500"
+                className="text-[#333] font-medium"
                 style={{ 
-                  fontSize: '10px',
-                  fontFamily: "'Courier New', monospace"
+                  fontSize: '11px',
+                  fontFamily: "'Courier New', monospace",
+                  letterSpacing: '0.5px'
                 }}
               >
                 {certificateCode}
@@ -1110,7 +1106,7 @@ function CertificateView({ video, userProfile, onBack }) {
             </div>
           </div>
 
-          {/* Fallback si no carga la imagen - certificado básico */}
+          {/* Fallback si no carga la imagen */}
           <div 
             className="absolute inset-0 flex flex-col items-center justify-between text-black bg-white border-8 border-double border-[#003366] p-8"
             style={{ 
@@ -1137,6 +1133,7 @@ function CertificateView({ video, userProfile, onBack }) {
               <div className="w-64 border-b border-black mb-2 mx-auto"></div>
               <p className="text-sm">Comisión de Acreditación y Educación Continua</p>
               <p className="text-sm text-gray-600">Evaluación Aprobada: {currentDate.toLocaleDateString('es-GT')}</p>
+              <p className="text-xs text-gray-500 mt-2">{certificateCode}</p>
             </div>
           </div>
         </div>
