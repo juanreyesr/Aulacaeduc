@@ -1022,12 +1022,12 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Número de colegiado - después de "NÚMERO DE COLEGIADO:" */}
             <div 
               className="absolute"
-              style={{ top: '350px', left: '595px' }}
+              style={{ top: '370px', left: '595px' }}
             >
               <p 
                 className="text-[#1a1a2e] font-semibold"
                 style={{ 
-                  fontSize: '16px',
+                  fontSize: '18px',
                   fontFamily: "'Georgia', serif"
                 }}
               >
@@ -1038,7 +1038,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Nombre del curso - debajo de "Ha completado y aprobado satisfactoriamente el curso virtual:" */}
             <div 
               className="absolute text-center"
-              style={{ top: '478px', left: '50%', transform: 'translateX(-50%)', width: '750px' }}
+              style={{ top: '468px', left: '50%', transform: 'translateX(-50%)', width: '750px' }}
             >
               <p 
                 className="font-bold text-[#1a1a2e] uppercase"
@@ -1055,7 +1055,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Horas acreditadas - entre "Acreditando" y "horas de formación continua." */}
             <div 
               className="absolute"
-              style={{ top: '452px', left: '445px' }}
+              style={{ top: '412px', left: '445px' }}
             >
               <p 
                 className="text-[#1a1a2e] font-bold"
@@ -1076,7 +1076,7 @@ function CertificateView({ video, userProfile, onBack }) {
               <p 
                 className="text-[#333]"
                 style={{ 
-                  fontSize: '14px',
+                  fontSize: '18px',
                   fontFamily: "'Georgia', serif"
                 }}
               >
