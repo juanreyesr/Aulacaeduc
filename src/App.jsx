@@ -1022,7 +1022,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Número de colegiado - después de "NÚMERO DE COLEGIADO:" */}
             <div 
               className="absolute"
-              style={{ top: '370px', left: '595px' }}
+              style={{ top: '370px', left: '575px' }}
             >
               <p 
                 className="text-[#1a1a2e] font-semibold"
@@ -1055,7 +1055,7 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Horas acreditadas - entre "Acreditando" y "horas de formación continua." */}
             <div 
               className="absolute"
-              style={{ top: '412px', left: '445px' }}
+              style={{ top: '512px', left: '445px' }}
             >
               <p 
                 className="text-[#1a1a2e] font-bold"
@@ -1071,12 +1071,12 @@ function CertificateView({ video, userProfile, onBack }) {
             {/* Fecha de evaluación aprobada - después de "Evaluación Aprobada:" */}
             <div 
               className="absolute"
-              style={{ top: '565px', left: '50%', transform: 'translateX(-50%)' }}
+              style={{ top: '575px', left: '50%', transform: 'translateX(-50%)' }}
             >
               <p 
                 className="text-[#333]"
                 style={{ 
-                  fontSize: '18px',
+                  fontSize: '19px',
                   fontFamily: "'Georgia', serif"
                 }}
               >
